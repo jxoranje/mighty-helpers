@@ -115,6 +115,17 @@ export default function KidsPage() {
               </Link>
             </div>
 
+{pageError && pageError === "You are not logged in." && (
+  <div className="mt-5">
+    <Link
+      href="/login"
+      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+    >
+      Log in to your household
+    </Link>
+  </div>
+)}
+
             <div className="pt-8 sm:pt-10">
 
               <h1 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-6xl">

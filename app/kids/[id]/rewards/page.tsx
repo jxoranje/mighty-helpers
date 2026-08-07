@@ -234,6 +234,17 @@ export default function KidRewardsPage() {
                 </div>
               </div>
 
+{pageError && pageError === "You are not logged in." && (
+  <div className="mt-5">
+    <Link
+      href="/login"
+      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+    >
+      Log in to your household
+    </Link>
+  </div>
+)}
+
               <div className="min-w-[220px] rounded-[1.75rem] border border-[var(--star-border)] bg-[linear-gradient(135deg,_#fff7d6_0%,_#ffe7b8_100%)] p-5 shadow-[0_14px_30px_rgba(138,90,0,0.12)]">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--star-text)]">
                   Star balance

@@ -237,6 +237,17 @@ export default function KidProfilePage() {
               </Link>
             </div>
 
+{pageError && pageError === "You are not logged in." && (
+  <div className="mt-5">
+    <Link
+      href="/login"
+      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+    >
+      Log in to your household
+    </Link>
+  </div>
+)}
+
             {/* Top: chores */}
             <section className="mt-8 rounded-[1.75rem] border border-[rgba(83,140,104,0.18)] bg-[linear-gradient(180deg,_rgba(236,250,240,0.96)_0%,_rgba(224,245,231,0.96)_100%)] p-6 shadow-[0_14px_30px_rgba(80,140,100,0.10)]">
               <div className="flex items-end justify-between gap-3">

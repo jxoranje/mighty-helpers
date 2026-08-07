@@ -28,8 +28,21 @@ export default function Home() {
                 className="inline-flex items-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
               >
                 Settings | Manage your household
-              </Link>
-            </div>
+              <div className="flex flex-col items-end gap-2">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+                >
+                  Settings | Manage your household
+                </Link>
+
+                <Link
+                  href="/login"
+                  className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-soft-strong)] active:translate-y-0"
+                >
+                  Log in to your household
+                </Link>
+              </div>
 
             <div className="grid gap-8 pt-8 md:grid-cols-[0.9fr_1.1fr] md:items-start md:gap-10">
               <div>

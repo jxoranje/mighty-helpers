@@ -528,6 +528,17 @@ export default function AssignmentsPage() {
           </div>
         </div>
 
+{pageError && pageError === "You are not logged in." && (
+  <div className="mt-5">
+    <Link
+      href="/login"
+      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+    >
+      Log in to your household
+    </Link>
+  </div>
+)}
+
         {message && <p className="mt-6 text-sm text-green-600">{message}</p>}
         {pageError && <p className="mt-6 text-sm text-red-600">{pageError}</p>}
 

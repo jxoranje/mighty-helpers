@@ -306,6 +306,17 @@ export default function ApprovalsPage() {
               </button>
             </div>
 
+{pageError && pageError === "You are not logged in." && (
+  <div className="mt-5">
+    <Link
+      href="/login"
+      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+    >
+      Log in to your household
+    </Link>
+  </div>
+)}
+
             <div className="mt-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
               <div>
                 <div className="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] shadow-sm">
