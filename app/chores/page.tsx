@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -72,14 +73,10 @@ function formatRecurrenceLabel(recurrenceType: RecurrenceType) {
       return "Weekly";
     case "biweekly":
       return "Every other week";
-    default:
-      return recurrenceType;
   }
 }
 
-function getKidName(
-  relation: { name: string } | { name: string }[] | null
-) {
+function getKidName(relation: { name: string } | { name: string }[] | null) {
   if (!relation) return "";
   if (Array.isArray(relation)) return relation[0]?.name ?? "";
   return relation.name ?? "";
@@ -149,11 +146,7 @@ function SectionMessage({
   );
 }
 
-function FieldLabel({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">
       {children}
@@ -170,9 +163,7 @@ function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-function FieldSelect(
-  props: React.SelectHTMLAttributes<HTMLSelectElement>
-) {
+function FieldSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
@@ -204,7 +195,7 @@ function FieldCheckbox({
 }
 
 export default function ChoresPage() {
-  const supabase = createBrowserClient();
+  const supabase = useMemo(() => createBrowserClient(), []);
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -233,7 +224,9 @@ export default function ChoresPage() {
     useState<RecurrenceType>("daily");
   const [editingIsActive, setEditingIsActive] = useState(true);
 
-  const [chorePendingDeleteId, setChorePendingDeleteId] = useState<string | null>(null);
+  const [chorePendingDeleteId, setChorePendingDeleteId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     async function loadChores() {
@@ -275,18 +268,20 @@ export default function ChoresPage() {
       const hid = typedMemberRow.household_id;
       setHouseholdId(hid);
 
-      const [{ data: kidRows, error: kidsError }, { data: choreRows, error: choresError }] =
-        await Promise.all([
-          supabase
-            .from("kids")
-            .select("id, name")
-            .eq("household_id", hid)
-            .is("archived_at", null)
-            .order("name", { ascending: true }),
-          supabase
-            .from("chores")
-            .select(
-              `
+      const [
+        { data: kidRows, error: kidsError },
+        { data: choreRows, error: choresError },
+      ] = await Promise.all([
+        supabase
+          .from("kids")
+          .select("id, name")
+          .eq("household_id", hid)
+          .is("archived_at", null)
+          .order("name", { ascending: true }),
+        supabase
+          .from("chores")
+          .select(
+            `
               id,
               household_id,
               kid_id,
@@ -298,10 +293,10 @@ export default function ChoresPage() {
               is_active,
               kids(name)
             `
-            )
-            .eq("household_id", hid)
-            .order("created_at", { ascending: true }),
-        ]);
+          )
+          .eq("household_id", hid)
+          .order("created_at", { ascending: true }),
+      ]);
 
       if (kidsError) {
         setError(kidsError.message);
@@ -367,17 +362,17 @@ export default function ChoresPage() {
       .insert(chorePayload as never)
       .select(
         `
-        id,
-        household_id,
-        kid_id,
-        title,
-        description,
-        star_value,
-        category,
-        recurrence_type,
-        is_active,
-        kids(name)
-      `
+          id,
+          household_id,
+          kid_id,
+          title,
+          description,
+          star_value,
+          category,
+          recurrence_type,
+          is_active,
+          kids(name)
+        `
       )
       .single();
 
@@ -467,17 +462,17 @@ export default function ChoresPage() {
       .eq("household_id", householdId)
       .select(
         `
-        id,
-        household_id,
-        kid_id,
-        title,
-        description,
-        star_value,
-        category,
-        recurrence_type,
-        is_active,
-        kids(name)
-      `
+          id,
+          household_id,
+          kid_id,
+          title,
+          description,
+          star_value,
+          category,
+          recurrence_type,
+          is_active,
+          kids(name)
+        `
       )
       .single();
 
@@ -574,16 +569,16 @@ export default function ChoresPage() {
               </button>
             </div>
 
-{pageError && pageError === "You are not logged in." && (
-  <div className="mt-5">
-    <Link
-      href="/login"
-      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-    >
-      Log in to your household
-    </Link>
-  </div>
-)}
+            {error === "You are not logged in." && (
+              <div className="mt-5">
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+                >
+                  Log in to your household
+                </Link>
+              </div>
+            )}
 
             <div className="mt-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
               <div>
@@ -646,9 +641,7 @@ export default function ChoresPage() {
                       Household list
                     </h2>
                   </div>
-                  <p className="text-sm text-[var(--muted)]">
-                    Sorted by child, then title.
-                  </p>
+                  <p className="text-sm text-[var(--muted)]">Sorted by child, then title.</p>
                 </div>
 
                 {chores.length === 0 ? (
@@ -707,7 +700,6 @@ export default function ChoresPage() {
                                   <span className="text-xs font-medium text-[rgb(140,62,62)]">
                                     Delete this chore?
                                   </span>
-
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteChore(chore.id)}
@@ -715,7 +707,6 @@ export default function ChoresPage() {
                                   >
                                     Delete
                                   </button>
-
                                   <button
                                     type="button"
                                     onClick={() => setChorePendingDeleteId(null)}
@@ -733,7 +724,6 @@ export default function ChoresPage() {
                                   >
                                     Edit
                                   </button>
-
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -778,10 +768,7 @@ export default function ChoresPage() {
                   <form onSubmit={handleCreateChore} className="mt-6 space-y-5">
                     <div>
                       <FieldLabel>Kid</FieldLabel>
-                      <FieldSelect
-                        value={newKidId}
-                        onChange={(e) => setNewKidId(e.target.value)}
-                      >
+                      <FieldSelect value={newKidId} onChange={(e) => setNewKidId(e.target.value)}>
                         <option value="">Select a kid</option>
                         {kids.map((kid) => (
                           <option key={kid.id} value={kid.id}>
@@ -821,7 +808,6 @@ export default function ChoresPage() {
                           onChange={(e) => setNewStarValue(e.target.value)}
                         />
                       </div>
-
                       <div>
                         <FieldLabel>Category (optional)</FieldLabel>
                         <FieldInput
@@ -837,9 +823,7 @@ export default function ChoresPage() {
                       <FieldLabel>Recurrence</FieldLabel>
                       <FieldSelect
                         value={newRecurrenceType}
-                        onChange={(e) =>
-                          setNewRecurrenceType(e.target.value as RecurrenceType)
-                        }
+                        onChange={(e) => setNewRecurrenceType(e.target.value as RecurrenceType)}
                       >
                         <option value="one_off">One-off</option>
                         <option value="daily">Daily</option>
@@ -849,11 +833,7 @@ export default function ChoresPage() {
                     </div>
 
                     <div>
-                      <FieldCheckbox
-                        checked={newIsActive}
-                        onChange={setNewIsActive}
-                        label="Active chore"
-                      />
+                      <FieldCheckbox checked={newIsActive} onChange={setNewIsActive} label="Active chore" />
                     </div>
 
                     <button
@@ -908,7 +888,6 @@ export default function ChoresPage() {
                           onChange={(e) => setEditingStarValue(e.target.value)}
                         />
                       </div>
-
                       <div>
                         <FieldLabel>Category (optional)</FieldLabel>
                         <FieldInput
@@ -949,7 +928,6 @@ export default function ChoresPage() {
                       >
                         Save changes
                       </button>
-
                       <button
                         type="button"
                         onClick={cancelEditingChore}

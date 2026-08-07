@@ -306,7 +306,7 @@ export default function ApprovalsPage() {
               </button>
             </div>
 
-{pageError && pageError === "You are not logged in." && (
+{pageError && pageError === "" && (
   <div className="mt-5">
     <Link
       href="/login"
