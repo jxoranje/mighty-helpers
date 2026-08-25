@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/pricing", "/api/checkout", "/api/webhooks", "/auth/callback", "/start-checkout"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const res = NextResponse.next();
 
   if (PUBLIC_PATHS.some((p) => req.nextUrl.pathname.startsWith(p))) return res;
