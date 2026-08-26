@@ -408,7 +408,7 @@ async function handleSignOut() {
                   href="/kids"
                   className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,118,110,0.28)] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] active:translate-y-0"
                 >
-                  Open kid picker
+                  Go the the Kid Screen
                 </Link>
               </div>
                 <button
