@@ -1,8 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
-let browserClient: ReturnType<typeof createClient> | null = null;
+let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
-export function createBrowserClient() {
+export function createBrowserClientInstance() {
   if (browserClient) return browserClient;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,6 +12,11 @@ export function createBrowserClient() {
     throw new Error("Supabase URL or key is missing");
   }
 
-  browserClient = createClient(url, key);
+  browserClient = createBrowserClient(url, key);
   return browserClient;
 }
+
+// Keep the old export name so every existing import across the app
+// (`import { createBrowserClient } from "@/lib/supabase/client"`)
+// keeps working without editing every file that uses it.
+export { createBrowserClientInstance as createBrowserClient };
