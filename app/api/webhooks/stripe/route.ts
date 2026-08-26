@@ -32,37 +32,38 @@ export async function POST(req: Request) {
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId;
+case "checkout.session.completed": {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const userId = session.metadata?.userId;
 
-        if (!userId) {
-          console.error("No userId in session metadata", session.id);
-          break;
-        }
+  if (!userId) {
+    console.error("No userId in session metadata", session.id);
+    break;
+  }
 
-        const subscriptionId =
-          typeof session.subscription === "string"
-            ? session.subscription
-            : session.subscription?.id;
+  const subscriptionId =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : session.subscription?.id;
 
-        const customerId =
-          typeof session.customer === "string"
-            ? session.customer
-            : session.customer?.id;
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.id;
 
-        await supabaseAdmin.from("subscribers").upsert(
-          {
-            user_id: userId,
-            status: "active",
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-          },
-          { onConflict: "user_id" }
-        );
+  await supabaseAdmin.from("subscribers").upsert(
+    {
+      user_id: userId,
+      email: session.customer_details?.email ?? session.customer_email,
+      status: "active",
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscriptionId,
+    },
+    { onConflict: "user_id" }
+  );
 
-        break;
-      }
+  break;
+}
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
