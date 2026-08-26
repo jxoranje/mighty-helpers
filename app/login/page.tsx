@@ -29,9 +29,8 @@ export default function LoginPage() {
       return;
     }
 
-    setMessage("Login successful.");
-    router.push("/");
-    router.refresh();
+      setMessage("Login successful.");
+      window.location.href = "/";
   }
 
   return (
