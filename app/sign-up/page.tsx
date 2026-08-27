@@ -4,11 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { createBrowserClient } from "@/lib/supabase/client";
 
+const TERMS_VERSION = "2026-08-26";
+
 export default function SignUpPage() {
   const supabase = createBrowserClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,6 +21,12 @@ export default function SignUpPage() {
     e.preventDefault();
     setError("");
     setMessage("");
+
+    if (!agreedToTerms) {
+      setError("Please agree to the Privacy Policy and Terms of Service to continue.");
+      return;
+    }
+
     setLoading(true);
 
     const { data, error } = await supabase.auth.signUp({
@@ -28,6 +37,10 @@ export default function SignUpPage() {
         // link in their email. This route exchanges the code for a session,
         // then kicks off Stripe Checkout.
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          terms_accepted_at: new Date().toISOString(),
+          terms_version: TERMS_VERSION,
+        },
       },
     });
 
@@ -85,9 +98,38 @@ export default function SignUpPage() {
               />
             </div>
 
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="agreeToTerms"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 shrink-0 rounded border-neutral-300"
+              />
+              <label htmlFor="agreeToTerms" className="text-sm text-neutral-600">
+                I agree to the{" "}
+                <Link
+                  href="/legal#privacy-policy"
+                  target="_blank"
+                  className="text-neutral-900 underline"
+                >
+                  Privacy Policy
+                </Link>{" "}
+                and{" "}
+                <Link
+                  href="/legal#terms-of-use"
+                  target="_blank"
+                  className="text-neutral-900 underline"
+                >
+                  Terms of Service
+                </Link>
+                .
+              </label>
+            </div>
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !agreedToTerms}
               className="w-full rounded-xl bg-neutral-900 px-4 py-3 text-white hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? "Creating account..." : "Sign up"}

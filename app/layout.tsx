@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, DM_Sans, Fraunces } from "next/font/google";
+import { FooterLegalLinks } from "./components/footer-legal-links";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,7 +33,15 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${dmSans.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <div className="flex-1">{children}</div>
+
+        <footer className="border-t border-[var(--border-soft)] px-4 py-6 sm:px-6">
+          <div className="mx-auto max-w-3xl">
+            <FooterLegalLinks />
+          </div>
+        </footer>
+      </body>
     </html>
   );
 }

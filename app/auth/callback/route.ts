@@ -10,8 +10,8 @@ const supabaseAdmin = createClient(
 
 // Supabase redirects the user here after they click the email
 // confirmation link. We exchange the auth code for a real session,
-// make sure they have a household set up, then send them on to
-// /start-checkout to begin their subscription.
+// record their Terms/Privacy consent, make sure they have a household
+// set up, then send them on to /start-checkout to begin their subscription.
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
@@ -42,6 +42,33 @@ export async function GET(req: NextRequest) {
       } = await supabase.auth.getUser();
 
       if (user) {
+        // --- Record Terms of Service / Privacy Policy consent ---
+        const termsAcceptedAt = user.user_metadata?.terms_accepted_at;
+        const termsVersion = user.user_metadata?.terms_version;
+
+        if (termsAcceptedAt && termsVersion) {
+          const { error: consentError } = await supabaseAdmin
+            .from("user_consents")
+            .upsert(
+              {
+                user_id: user.id,
+                terms_accepted_at: termsAcceptedAt,
+                terms_version: termsVersion,
+              },
+              { onConflict: "user_id" }
+            );
+
+          if (consentError) {
+            console.error("Failed to record terms consent:", consentError);
+          }
+        } else {
+          console.warn(
+            "No terms_accepted_at/terms_version found in user metadata for",
+            user.id
+          );
+        }
+
+        // --- Make sure the user has a household ---
         const { data: existingMembership } = await supabaseAdmin
           .from("household_members")
           .select("household_id")
