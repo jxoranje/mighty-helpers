@@ -19,8 +19,8 @@ export default function Home() {
                   <Image
                     src={logo}
                     alt="Mighty Helpers"
-                    width={100}
-                    height={100}
+                    width={40}
+                    height={40}
                     className="h-full w-full object-cover"
                     priority
                   />
@@ -33,6 +33,12 @@ export default function Home() {
               </div>
 
             <div className="flex flex-col items-end gap-2">
+            <Link
+              href="/login"
+              className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-soft-strong)] active:translate-y-0"
+              >
+              Log in/Sign Up
+          </Link>
               <Link
                 href="/dashboard"
                 className="inline-flex items-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
@@ -40,12 +46,7 @@ export default function Home() {
                 Settings | Manage your household
               </Link>
 
-            <Link
-              href="/login"
-              className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-soft-strong)] active:translate-y-0"
-              >
-              Log in/Sign Up
-          </Link>
+
         </div>
       </div>
 
