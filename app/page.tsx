@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import logo from "./app/components/images/mh_logo_tr.png";
+import logo from "@/components/images/logo.png";
 
 export default function Home() {
   return (
