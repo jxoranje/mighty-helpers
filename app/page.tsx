@@ -19,8 +19,8 @@ export default function Home() {
                   <Image
                     src={logo}
                     alt="Mighty Helpers"
-                    width={40}
-                    height={40}
+                    width={100}
+                    height={100}
                     className="h-full w-full object-cover"
                     priority
                   />
