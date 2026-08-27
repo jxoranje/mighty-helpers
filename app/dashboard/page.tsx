@@ -47,6 +47,10 @@ export default function DashboardPage() {
   const [newKidLevel, setNewKidLevel] = useState("1");
   const [newKidAvatar, setNewKidAvatar] = useState("");
 
+  const [cancelingSubscription, setCancelingSubscription] = useState(false);
+  const [subscriptionMessage, setSubscriptionMessage] = useState("");
+  const [subscriptionError, setSubscriptionError] = useState("");
+
   useEffect(() => {
     async function loadDashboard() {
       setLoading(true);
@@ -210,20 +214,57 @@ export default function DashboardPage() {
     }
   }
 
-async function handleSignOut() {
-  setPageError("");
-  setMessage("");
+  async function handleSignOut() {
+    setPageError("");
+    setMessage("");
 
-  const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
 
-  if (error) {
-    setPageError(error.message);
-    return;
+    if (error) {
+      setPageError(error.message);
+      return;
+    }
+
+    router.replace("/login");
+    router.refresh();
   }
 
-  router.replace("/login");
-  router.refresh();
-}
+  async function handleCancelSubscription() {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel your subscription? You'll keep access until the end of your current billing period, then it won't renew."
+    );
+
+    if (!confirmed) return;
+
+    setSubscriptionMessage("");
+    setSubscriptionError("");
+    setCancelingSubscription(true);
+
+    try {
+      const res = await fetch("/api/subscription/cancel", { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Unable to cancel subscription.");
+      }
+
+      const periodEndDate = data.periodEnd
+        ? new Date(data.periodEnd).toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "the end of your current billing period";
+
+      setSubscriptionMessage(
+        `Your subscription is set to cancel. You'll keep access until ${periodEndDate}.`
+      );
+    } catch (err: any) {
+      setSubscriptionError(err?.message || "Unable to cancel subscription.");
+    } finally {
+      setCancelingSubscription(false);
+    }
+  }
 
   async function handleNewKidSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -386,16 +427,16 @@ async function handleSignOut() {
                 </p>
               </div>
 
-{pageError && pageError === "You are not logged in." && (
-  <div className="mt-5">
-    <Link
-      href="/login"
-      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-    >
-      Log in to your household
-    </Link>
-  </div>
-)}
+              {pageError && pageError === "You are not logged in." && (
+                <div className="mt-5">
+                  <Link
+                    href="/login"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+                  >
+                    Log in to your household
+                  </Link>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2">
                 <Link
@@ -411,11 +452,11 @@ async function handleSignOut() {
                   Go the the Kid Screen
                 </Link>
               </div>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-[var(--danger-border)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--danger-text)] shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--danger-border)] hover:bg-[var(--danger-soft)] active:translate-y-0"
-                >
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-[var(--danger-border)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--danger-text)] shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--danger-border)] hover:bg-[var(--danger-soft)] active:translate-y-0"
+              >
                 Log out
               </button>
             </div>
@@ -912,6 +953,28 @@ async function handleSignOut() {
                 <p className="text-xs text-[var(--muted)]">
                   Household connected and adult hub loaded successfully.
                 </p>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={handleCancelSubscription}
+                    disabled={cancelingSubscription}
+                    className="text-xs font-medium text-[var(--muted)] underline decoration-[var(--border-strong)] transition-colors duration-200 hover:text-[var(--danger-text)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {cancelingSubscription ? "Canceling..." : "Cancel subscription"}
+                  </button>
+
+                  {subscriptionMessage && (
+                    <p className="mt-2 text-xs text-[var(--success-text)]">
+                      {subscriptionMessage}
+                    </p>
+                  )}
+                  {subscriptionError && (
+                    <p className="mt-2 text-xs text-[var(--danger-text)]">
+                      {subscriptionError}
+                    </p>
+                  )}
+                </div>
               </section>
             )}
           </div>
