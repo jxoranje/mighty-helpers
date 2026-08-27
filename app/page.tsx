@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import logo from ".app/components/images/mh_logo_tr.png";
 
 export default function Home() {
   return (
@@ -13,8 +15,15 @@ export default function Home() {
           <div className="relative p-5 sm:p-8 md:p-10">
             <div className="flex items-start justify-between gap-4">
               <div className="inline-flex items-center gap-3 rounded-full border border-[var(--border-soft)] bg-white/80 px-4 py-2 shadow-sm backdrop-blur">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-xl">
-                  ★
+                <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[var(--accent-soft)]">
+                  <Image
+                    src={logo}
+                    alt="Mighty Helpers"
+                    width={40}
+                    height={40}
+                    className="h-full w-full object-cover"
+                    priority
+                  />
                 </span>
                 <div>
                   <p className="text-sm font-semibold text-[var(--foreground)]">
@@ -35,7 +44,7 @@ export default function Home() {
               href="/login"
               className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-soft-strong)] active:translate-y-0"
               >
-              Log in to your household
+              Log in/Sign Up
           </Link>
         </div>
       </div>
@@ -140,7 +149,7 @@ export default function Home() {
                 className="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-xs font-medium tracking-[0.18em] text-[var(--muted)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:text-[var(--foreground)]"
               >
                 <span className="h-2 w-2 rounded-full bg-[var(--accent-strong)]" />
-                Part of the Kofe Labs family
+                Part of the Kofe Labs Family
               </a>
             </div>
           </div>
