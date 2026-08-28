@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
+import { ChoreCategoryBadge, ChoreCategoryPicker } from "@/app/components/chore-category-picker";
+import type { ChoreCategoryKey } from "@/lib/chore-categories";
 
 type HouseholdMemberLookup = {
   household_id: string;
@@ -209,7 +211,7 @@ export default function ChoresPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newStarValue, setNewStarValue] = useState("1");
-  const [newCategory, setNewCategory] = useState("");
+  const [newCategory, setNewCategory] = useState<ChoreCategoryKey | "">("");
   const [newRecurrenceType, setNewRecurrenceType] =
     useState<RecurrenceType>("daily");
   const [newIsActive, setNewIsActive] = useState(true);
@@ -219,7 +221,7 @@ export default function ChoresPage() {
   const [editingTitle, setEditingTitle] = useState("");
   const [editingDescription, setEditingDescription] = useState("");
   const [editingStarValue, setEditingStarValue] = useState("1");
-  const [editingCategory, setEditingCategory] = useState("");
+  const [editingCategory, setEditingCategory] = useState<ChoreCategoryKey | "">("");
   const [editingRecurrenceType, setEditingRecurrenceType] =
     useState<RecurrenceType>("daily");
   const [editingIsActive, setEditingIsActive] = useState(true);
@@ -352,7 +354,7 @@ export default function ChoresPage() {
       title,
       description: newDescription.trim() || null,
       star_value: starValue,
-      category: newCategory.trim() || null,
+      category: newCategory || null,
       recurrence_type: newRecurrenceType,
       is_active: newIsActive,
     };
@@ -399,7 +401,7 @@ export default function ChoresPage() {
     setEditingTitle(chore.title);
     setEditingDescription(chore.description ?? "");
     setEditingStarValue(String(chore.star_value));
-    setEditingCategory(chore.category ?? "");
+    setEditingCategory((chore.category as ChoreCategoryKey) ?? "");
     setEditingRecurrenceType(chore.recurrence_type);
     setEditingIsActive(chore.is_active);
     setError("");
@@ -450,7 +452,7 @@ export default function ChoresPage() {
       title,
       description: editingDescription.trim() || null,
       star_value: starValue,
-      category: editingCategory.trim() || null,
+      category: editingCategory || null,
       recurrence_type: editingRecurrenceType,
       is_active: editingIsActive,
     };
@@ -682,14 +684,12 @@ export default function ChoresPage() {
                                 </p>
                               )}
 
-                              <div className="mt-4 flex flex-wrap gap-2">
+                              <div className="mt-4 flex flex-wrap items-center gap-2">
                                 <span className="rounded-full bg-white/70 px-3 py-1.5 text-sm font-semibold text-[var(--foreground)]">
                                   {chore.star_value} stars
                                 </span>
                                 {chore.category && (
-                                  <span className="rounded-full bg-white/70 px-3 py-1.5 text-sm text-[var(--foreground-soft)]">
-                                    {chore.category}
-                                  </span>
+                                  <ChoreCategoryBadge categoryKey={chore.category} />
                                 )}
                               </div>
                             </div>
@@ -798,25 +798,19 @@ export default function ChoresPage() {
                       />
                     </div>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <div>
-                        <FieldLabel>Star value</FieldLabel>
-                        <FieldInput
-                          type="number"
-                          min="0"
-                          value={newStarValue}
-                          onChange={(e) => setNewStarValue(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel>Category (optional)</FieldLabel>
-                        <FieldInput
-                          type="text"
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          placeholder="Morning, Bedtime, Kitchen"
-                        />
-                      </div>
+                    <div>
+                      <FieldLabel>Star value</FieldLabel>
+                      <FieldInput
+                        type="number"
+                        min="0"
+                        value={newStarValue}
+                        onChange={(e) => setNewStarValue(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <FieldLabel>Category icon (optional)</FieldLabel>
+                      <ChoreCategoryPicker value={newCategory} onChange={setNewCategory} />
                     </div>
 
                     <div>
@@ -878,24 +872,19 @@ export default function ChoresPage() {
                       />
                     </div>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <div>
-                        <FieldLabel>Star value</FieldLabel>
-                        <FieldInput
-                          type="number"
-                          min="0"
-                          value={editingStarValue}
-                          onChange={(e) => setEditingStarValue(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel>Category (optional)</FieldLabel>
-                        <FieldInput
-                          type="text"
-                          value={editingCategory}
-                          onChange={(e) => setEditingCategory(e.target.value)}
-                        />
-                      </div>
+                    <div>
+                      <FieldLabel>Star value</FieldLabel>
+                      <FieldInput
+                        type="number"
+                        min="0"
+                        value={editingStarValue}
+                        onChange={(e) => setEditingStarValue(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <FieldLabel>Category icon (optional)</FieldLabel>
+                      <ChoreCategoryPicker value={editingCategory} onChange={setEditingCategory} />
                     </div>
 
                     <div>
