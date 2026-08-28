@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
+import logo from "@/components/images/logo.png";
 
 export default function LoginPage() {
   const supabase = createBrowserClient();
@@ -45,9 +47,14 @@ export default function LoginPage() {
           <div className="relative grid gap-8 p-5 sm:p-8 md:grid-cols-[1fr_0.95fr] md:p-10">
             <div className="flex flex-col justify-between">
               <div>
-                <div className="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] shadow-sm">
-                  Parent access
-                </div>
+                <Image
+                  src={logo}
+                  alt="Mighty Helpers"
+                  width={72}
+                  height={72}
+                  className="h-16 w-16 rounded-2xl object-cover shadow-sm sm:h-20 sm:w-20"
+                  priority
+                />
 
                 <h1 className="mt-5 max-w-md font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
                   Log in to manage your household
