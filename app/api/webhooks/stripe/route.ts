@@ -51,17 +51,41 @@ case "checkout.session.completed": {
       ? session.customer
       : session.customer?.id;
 
-  await supabaseAdmin.from("subscribers").upsert(
+const { error: subscriberError } = await supabaseAdmin
+  .from("subscribers")
+  .upsert(
     {
       user_id: userId,
       email: session.customer_details?.email ?? session.customer_email,
-      status: "active",
+      status: "trialing",
       stripe_customer_id: customerId,
       stripe_subscription_id: subscriptionId,
     },
     { onConflict: "user_id" }
   );
 
+if (subscriberError) {
+  throw subscriberError;
+}
+
+const { data: membership, error: membershipError } = await supabaseAdmin
+  .from("household_members")
+  .select("household_id")
+  .eq("user_id", userId)
+  .maybeSingle();
+
+if (membershipError || !membership?.household_id) {
+  throw membershipError || new Error("No household found for completed checkout.");
+}
+
+const { error: onboardingError } = await supabaseAdmin
+  .from("households")
+  .update({ onboarding_completed_at: new Date().toISOString() })
+  .eq("id", membership.household_id);
+
+if (onboardingError) {
+  throw onboardingError;
+}
   break;
 }
 

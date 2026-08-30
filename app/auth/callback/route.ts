@@ -8,112 +8,140 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Supabase redirects the user here after they click the email
-// confirmation link. We exchange the auth code for a real session,
-// record their Terms/Privacy consent, make sure they have a household
-// set up, then send them on to /start-checkout to begin their subscription.
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
 
-  if (code) {
-    const cookieStore = await cookies();
+  if (!code) {
+    return NextResponse.redirect(
+      `${origin}/login?error=confirmation_failed`
+    );
+  }
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          },
+  const cookieStore = await cookies();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
         },
-      }
+      },
+    }
+  );
+
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+    code
+  );
+
+  if (exchangeError) {
+    console.error("Could not exchange confirmation code:", exchangeError);
+
+    return NextResponse.redirect(
+      `${origin}/login?error=confirmation_failed`
+    );
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    console.error("Could not load confirmed user:", userError);
+
+    return NextResponse.redirect(
+      `${origin}/login?error=confirmation_failed`
+    );
+  }
+
+  const termsAcceptedAt = user.user_metadata?.terms_accepted_at;
+  const termsVersion = user.user_metadata?.terms_version;
+
+  if (!termsAcceptedAt || !termsVersion) {
+    console.error("Confirmed user is missing terms consent metadata:", user.id);
+
+    return NextResponse.redirect(
+      `${origin}/login?error=missing_consent`
+    );
+  }
+
+  const { error: consentError } = await supabaseAdmin
+    .from("user_consents")
+    .upsert(
+      {
+        user_id: user.id,
+        terms_accepted_at: termsAcceptedAt,
+        terms_version: termsVersion,
+      },
+      { onConflict: "user_id" }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (consentError) {
+    console.error("Failed to record terms consent:", consentError);
 
-    if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    return NextResponse.redirect(
+      `${origin}/login?error=setup_failed`
+    );
+  }
 
-      if (user) {
-        // --- Record Terms of Service / Privacy Policy consent ---
-        const termsAcceptedAt = user.user_metadata?.terms_accepted_at;
-        const termsVersion = user.user_metadata?.terms_version;
+  const { data: existingMembership, error: membershipLookupError } =
+    await supabaseAdmin
+      .from("household_members")
+      .select("household_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-        if (termsAcceptedAt && termsVersion) {
-          const { error: consentError } = await supabaseAdmin
-            .from("user_consents")
-            .upsert(
-              {
-                user_id: user.id,
-                terms_accepted_at: termsAcceptedAt,
-                terms_version: termsVersion,
-              },
-              { onConflict: "user_id" }
-            );
+  if (membershipLookupError) {
+    console.error(
+      "Failed to look up household membership:",
+      membershipLookupError
+    );
 
-          if (consentError) {
-            console.error("Failed to record terms consent:", consentError);
-          }
-        } else {
-          console.warn(
-            "No terms_accepted_at/terms_version found in user metadata for",
-            user.id
-          );
-        }
+    return NextResponse.redirect(
+      `${origin}/login?error=setup_failed`
+    );
+  }
 
-        // --- Make sure the user has a household ---
-        const { data: existingMembership } = await supabaseAdmin
-          .from("household_members")
-          .select("household_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
+  if (!existingMembership?.household_id) {
+    const { data: newHousehold, error: householdError } = await supabaseAdmin
+      .from("households")
+      .insert({
+        name: "My Household",
+        owner_user_id: user.id,
+      })
+      .select("id")
+      .single();
 
-        if (!existingMembership) {
-          const { data: newHousehold, error: householdError } =
-            await supabaseAdmin
-              .from("households")
-              .insert({
-                name: "My Household",
-                owner_user_id: user.id,
-              })
-              .select("id")
-              .single();
+    if (householdError || !newHousehold) {
+      console.error("Failed to create household for new user:", householdError);
 
-          if (householdError) {
-            console.error(
-              "Failed to create household for new user:",
-              householdError
-            );
-          } else if (newHousehold) {
-            const { error: memberError } = await supabaseAdmin
-              .from("household_members")
-              .insert({
-                household_id: newHousehold.id,
-                user_id: user.id,
-                role: "owner",
-              });
+      return NextResponse.redirect(
+        `${origin}/login?error=setup_failed`
+      );
+    }
 
-            if (memberError) {
-              console.error(
-                "Failed to create household_members row:",
-                memberError
-              );
-            }
-          }
-        }
-      }
+    const { error: memberError } = await supabaseAdmin
+      .from("household_members")
+      .insert({
+        household_id: newHousehold.id,
+        user_id: user.id,
+        role: "owner",
+      });
 
-      return NextResponse.redirect(`${origin}/start-checkout`);
+    if (memberError) {
+      console.error("Failed to create household membership:", memberError);
+
+      return NextResponse.redirect(
+        `${origin}/login?error=setup_failed`
+      );
     }
   }
 
-  // Something went wrong (expired link, invalid code, etc.)
-  return NextResponse.redirect(`${origin}/login?error=confirmation_failed`);
+  return NextResponse.redirect(`${origin}/onboarding`);
 }

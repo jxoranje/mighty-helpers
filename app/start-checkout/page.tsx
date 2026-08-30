@@ -1,86 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@/lib/supabase/client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-// Shown briefly right after a user confirms their email. Grabs the
-// now-real session, kicks off a Stripe Checkout session, and redirects
-// them straight into Stripe to start their 7-day trial.
 export default function StartCheckoutPage() {
-  const supabase = createBrowserClient();
-  const [error, setError] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function begin() {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        if (!cancelled) {
-          setError("We couldn't verify your session. Please log in again.");
-        }
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, email: user.email }),
-        });
-
-        if (!res.ok) throw new Error("Checkout request failed");
-
-        const { url } = await res.json();
-
-        if (url && !cancelled) {
-          window.location.href = url;
-          return;
-        }
-
-        if (!cancelled) {
-          setError("Could not start checkout. Please try again.");
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            "Your email is confirmed, but we couldn't start checkout. Please try again or contact support."
-          );
-        }
-      }
-    }
-
-    begin();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase]);
+    router.replace("/onboarding");
+  }, [router]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm border border-neutral-200 text-center">
-        {!error ? (
-          <>
-            <h1 className="text-xl font-semibold text-neutral-900">
-              Setting up your trial...
-            </h1>
-            <p className="mt-2 text-sm text-neutral-600">
-              You'll be redirected to checkout in a moment.
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl font-semibold text-neutral-900">
-              Something went wrong
-            </h1>
-            <p className="mt-2 text-sm text-red-600">{error}</p>
-          </>
-        )}
+    <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 text-[var(--foreground)]">
+      <div className="w-full max-w-md rounded-[1.75rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 text-center shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
+        <h1 className="text-xl font-semibold">Preparing your household…</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          Taking you to your Mighty Helpers setup.
+        </p>
       </div>
     </main>
   );

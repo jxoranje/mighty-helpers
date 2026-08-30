@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { CHORE_CATEGORY_LIST, type ChoreCategoryKey } from "@/lib/chore-categories";
+import {
+  CHORE_CATEGORY_LIST,
+  type ChoreCategoryKey,
+} from "@/lib/chore-categories";
 import { getKidAvatar } from "@/lib/kid-avatar";
 import logo from "@/app/components/images/logo.png";
 
@@ -151,6 +154,7 @@ export default function OnboardingPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -369,7 +373,7 @@ export default function OnboardingPage() {
     setSaving(true);
 
     if (selectedTemplates.length > 0) {
-      const { error: insertError } = await supabase.from("chores").insert(
+      const { error: upsertError } = await supabase.from("chores").upsert(
         selectedTemplates.map((template) => ({
           household_id: household.id,
           kid_id: templateKidId,
@@ -379,12 +383,17 @@ export default function OnboardingPage() {
           category: template.category,
           recurrence_type: template.recurrenceType,
           is_active: true,
-        })) as never
+          onboarding_template_key: template.id,
+        })) as never,
+        {
+          onConflict: "household_id,kid_id,onboarding_template_key",
+          ignoreDuplicates: true,
+        }
       );
 
-      if (insertError) {
+      if (upsertError) {
         setSaving(false);
-        setError(insertError.message);
+        setError(upsertError.message);
         return;
       }
     }
@@ -393,26 +402,36 @@ export default function OnboardingPage() {
     setStep(4);
   }
 
-  async function markOnboardingComplete() {
-    if (!household) return;
-
+  async function startTrial() {
     setError("");
     setMessage("");
-    setSaving(true);
+    setStartingTrial(true);
 
-    const { error: completeError } = await supabase
-      .from("households")
-      .update({ onboarding_completed_at: new Date().toISOString() } as never)
-      .eq("id", household.id);
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+      });
 
-    setSaving(false);
+      const payload = await response.json();
 
-    if (completeError) {
-      setError(completeError.message);
-      return;
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to start checkout.");
+      }
+
+      if (!payload.url) {
+        throw new Error("Checkout did not return a valid URL.");
+      }
+
+      window.location.assign(payload.url);
+    } catch (err: unknown) {
+      const text =
+        err instanceof Error
+          ? err.message
+          : "Unable to start checkout. Please try again.";
+
+      setError(text);
+      setStartingTrial(false);
     }
-
-    router.push("/start-checkout");
   }
 
   if (loading) {
@@ -819,9 +838,15 @@ export default function OnboardingPage() {
                     Your setup includes
                   </p>
                   <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--muted)]">
-                    <li>• {kids.length} {kids.length === 1 ? "helper" : "helpers"} ready to go</li>
-                    <li>• {selectedCount} starter {selectedCount === 1 ? "chore" : "chores"} selected</li>
-                    <li>• A clear place to approve tasks, award stars, and manage rewards</li>
+                    <li>
+                      • {kids.length} {kids.length === 1 ? "helper" : "helpers"} ready to go
+                    </li>
+                    <li>
+                      • {selectedCount} starter {selectedCount === 1 ? "chore" : "chores"} selected
+                    </li>
+                    <li>
+                      • A clear place to approve tasks, award stars, and manage rewards
+                    </li>
                   </ul>
                 </div>
 
@@ -829,18 +854,18 @@ export default function OnboardingPage() {
                   <button
                     type="button"
                     onClick={() => setStep(3)}
-                    disabled={saving}
+                    disabled={saving || startingTrial}
                     className="inline-flex min-h-12 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Back
                   </button>
                   <button
                     type="button"
-                    onClick={markOnboardingComplete}
-                    disabled={saving}
+                    onClick={startTrial}
+                    disabled={saving || startingTrial}
                     className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {saving ? "Getting ready…" : "Start my 7-day free trial"}
+                    {startingTrial ? "Opening secure checkout…" : "Start my 7-day free trial"}
                   </button>
                 </div>
               </section>
