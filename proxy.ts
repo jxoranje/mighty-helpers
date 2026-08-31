@@ -19,10 +19,20 @@ const ONBOARDING_PATH = "/onboarding";
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const res = NextResponse.next();
+  let response = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
 
-  if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
-    return res;
+  const isPublicPath =
+    pathname === "/" ||
+    PUBLIC_PATHS.some(
+      (path) => path !== "/" && pathname.startsWith(path)
+    );
+
+  if (isPublicPath) {
+    return response;
   }
 
   const supabase = createServerClient(
@@ -30,10 +40,23 @@ export async function proxy(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => req.cookies.getAll(),
-        setAll: () => {
-          // Proxy only reads the current session. Session refreshes are handled
-          // by the app's browser/server Supabase clients.
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            req.cookies.set(name, value);
+          });
+
+          response = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
+          });
+
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
@@ -60,19 +83,14 @@ export async function proxy(req: NextRequest) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (membershipError) {
-    console.error("Proxy could not load household membership:", membershipError);
+  if (membershipError || !membership?.household_id) {
+    console.error(
+      "Proxy could not load household membership:",
+      membershipError
+    );
 
     if (pathname === ONBOARDING_PATH) {
-      return res;
-    }
-
-    return NextResponse.redirect(new URL(ONBOARDING_PATH, req.url));
-  }
-
-  if (!membership?.household_id) {
-    if (pathname === ONBOARDING_PATH) {
-      return res;
+      return response;
     }
 
     return NextResponse.redirect(new URL(ONBOARDING_PATH, req.url));
@@ -84,19 +102,22 @@ export async function proxy(req: NextRequest) {
     .eq("id", membership.household_id)
     .maybeSingle();
 
-  if (householdError) {
-    console.error("Proxy could not load household onboarding status:", householdError);
+  if (householdError || !household) {
+    console.error(
+      "Proxy could not load household onboarding status:",
+      householdError
+    );
 
     if (pathname === ONBOARDING_PATH) {
-      return res;
+      return response;
     }
 
     return NextResponse.redirect(new URL(ONBOARDING_PATH, req.url));
   }
 
-  if (!household?.onboarding_completed_at) {
+  if (!household.onboarding_completed_at) {
     if (pathname === ONBOARDING_PATH) {
-      return res;
+      return response;
     }
 
     return NextResponse.redirect(new URL(ONBOARDING_PATH, req.url));
@@ -113,17 +134,21 @@ export async function proxy(req: NextRequest) {
     .maybeSingle();
 
   if (subscriptionError) {
-    console.error("Proxy could not load subscription status:", subscriptionError);
+    console.error(
+      "Proxy could not load subscription status:",
+      subscriptionError
+    );
   }
 
   const hasAccess =
-    subscription && ["trialing", "active"].includes(subscription.status);
+    subscription &&
+    ["trialing", "active"].includes(subscription.status);
 
   if (!hasAccess) {
     return NextResponse.redirect(new URL("/pricing", req.url));
   }
 
-  return res;
+  return response;
 }
 
 export const config = {
