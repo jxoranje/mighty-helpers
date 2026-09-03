@@ -75,13 +75,21 @@ export default function LegalPage() {
                 <h3>1. Information We Collect</h3>
 
                 <h4>Parent Account Information</h4>
-                <p>When you create a parent account, we collect:</p>
+                 <p>
+                  When an adult creates a parent account, we collect the information needed to provide and secure
+                  the service:
+                </p>
                 <ul>
                   <li>Email address</li>
                   <li>Password (encrypted)</li>
                   <li>Display name (optional)</li>
                   <li>Google account information if you choose to sign in with Google (email, name, Google ID)</li>
                 </ul>
+
+                  <p>
+                    Mighty Helpers is intended for parents and legal guardians. Parent account holders must be at
+                    least 18 years old and are responsible for any child profiles they create or manage.
+                    </p>
 
                 <h4>Child Account Information</h4>
                 <p>
@@ -145,12 +153,18 @@ export default function LegalPage() {
                   the Children&rsquo;s Online Privacy Protection Act (COPPA), 16 CFR Part 312.
                 </p>
                 <p>
-                  <strong>Parental creation and consent.</strong> Child accounts can only be created by a parent or
-                  legal guardian who holds a verified parent account. Because every parent account requires a paid
-                  subscription processed through a credit/debit card via Stripe, that transaction itself satisfies
-                  COPPA&rsquo;s verifiable parental consent requirement. By creating a child account, the parent
-                  consents to the collection, use, and limited disclosure of the child&rsquo;s information as
-                  described in this policy.
+                  <strong>Parental creation and consent.</strong> Child profiles may be created only by a parent
+                  or legal guardian through that adult&rsquo;s Mighty Helpers account. Before creating a child
+                  profile, the parent or legal guardian is asked to review and agree to our Terms of Service and
+                  Privacy Policy. By creating a child profile, the parent or legal guardian represents that they
+                  are authorized to do so and consents to our collection, use, storage, and limited disclosure of
+                  the child&rsquo;s information as described in this Privacy Policy.
+                </p>
+                <p>
+                  We use child-profile information only to provide Mighty Helpers&rsquo; household chore,
+                  completion-tracking, points, and rewards features. We do not require children to provide email
+                  addresses, phone numbers, or other direct contact information, and we do not use children&rsquo;s
+                  information for behavioral advertising, marketing, or profiling.
                 </p>
                 <p>
                   <strong>What we collect from children.</strong> We collect only a username, display name, and
@@ -175,6 +189,14 @@ export default function LegalPage() {
                     result in deactivation of that child&rsquo;s account
                   </li>
                 </ul>
+                <p>
+                 <strong>Notice to parents.</strong> Before a child profile is created, the parent or legal
+                  guardian is provided access to this Privacy Policy, which explains the categories of child
+                  information we collect, how we use it, the limited service providers that may process it, and the
+                  parent&rsquo;s choices and rights. Parents may contact us at{" "}
+                  <a href="mailto:hello@kofelabs.com">hello@kofelabs.com</a> with questions or requests about a
+                  child profile.
+                </p>
                 <p>
                   <strong>Retention.</strong> We retain a child&rsquo;s information only as long as the associated
                   parent account and household remain active. If deleted, we remove associated child data within 30
@@ -340,6 +362,12 @@ export default function LegalPage() {
                   created solely by the parent account holder. Children may not independently register for or create
                   their own account.
                 </p>
+                <p>
+                  By creating or managing a child profile, you represent that you are the child&rsquo;s parent or
+                  legal guardian, or otherwise have authority to create and manage the profile. You authorize
+                  Mighty Helpers to collect, use, and store the limited child-profile information described in our
+                  Privacy Policy solely to provide the service.
+                </p>
 
                 <h3>4. Account Tiers and Pricing</h3>
                 <p>Mighty Helpers currently offers one subscription tier:</p>
@@ -348,7 +376,11 @@ export default function LegalPage() {
                 </ul>
                 <p>
                   All payments are recurring monthly charges that grant access to the Standard tier for the billing
-                  period in which payment is made. Prices are subject to change for new purchases; existing
+                  period in which payment is made. Payment processing is handled by Stripe. Creating a parent
+                  account, accepting these Terms, and creating a child profile are separate steps from payment.
+                  </p>  
+                <p>
+                  Prices are subject to change for new purchases; existing
                   subscribers will be notified in advance of any price change taking effect on their account.
                 </p>
 
