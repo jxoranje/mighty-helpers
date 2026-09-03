@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 
@@ -29,7 +29,7 @@ type Reward = {
 };
 
 export default function KidRewardsPage() {
-  const supabase = createBrowserClient();
+  const supabase = useMemo(() => createBrowserClient(), []);
   const params = useParams<{ id: string }>();
   const kidId = params.id;
 
@@ -40,8 +40,11 @@ export default function KidRewardsPage() {
   const [kid, setKid] = useState<Kid | null>(null);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [redeemingRewardId, setRedeemingRewardId] = useState<string | null>(null);
+  const [confirmingRewardId, setConfirmingRewardId] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadKidRewardsPage() {
       setLoading(true);
       setPageError("");
@@ -51,6 +54,8 @@ export default function KidRewardsPage() {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
+
+      if (cancelled) return;
 
       if (userError || !user) {
         setPageError("You are not logged in.");
@@ -64,13 +69,15 @@ export default function KidRewardsPage() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      const typedMemberRow = memberRow as HouseholdMemberLookup | null;
+      if (cancelled) return;
 
       if (memberError) {
         setPageError(memberError.message);
         setLoading(false);
         return;
       }
+
+      const typedMemberRow = memberRow as HouseholdMemberLookup | null;
 
       if (!typedMemberRow?.household_id) {
         setPageError("No household found for this user.");
@@ -88,8 +95,10 @@ export default function KidRewardsPage() {
         .eq("household_id", hid)
         .single();
 
-      if (kidError) {
-        setPageError(kidError.message);
+      if (cancelled) return;
+
+      if (kidError || !kidRow) {
+        setPageError(kidError?.message || "Kid profile not found.");
         setLoading(false);
         return;
       }
@@ -105,6 +114,8 @@ export default function KidRewardsPage() {
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
+      if (cancelled) return;
+
       if (rewardsError) {
         setPageError(rewardsError.message);
         setLoading(false);
@@ -118,7 +129,33 @@ export default function KidRewardsPage() {
     if (kidId) {
       loadKidRewardsPage();
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [kidId, supabase]);
+
+  function startRewardConfirmation(reward: Reward) {
+    if (!kid) return;
+
+    const rewardCost = reward.cost_stars ?? 0;
+    const currentStars = kid.stars ?? 0;
+
+    setPageError("");
+    setPageMessage("");
+
+    if (currentStars < rewardCost) {
+      setPageError("Not enough stars for this reward yet.");
+      return;
+    }
+
+    setConfirmingRewardId(reward.id);
+  }
+
+  function cancelRewardConfirmation() {
+    setConfirmingRewardId(null);
+    setPageError("");
+  }
 
   async function handleRedeemReward(reward: Reward) {
     setPageError("");
@@ -133,6 +170,7 @@ export default function KidRewardsPage() {
     const currentStars = kid.stars ?? 0;
 
     if (currentStars < rewardCost) {
+      setConfirmingRewardId(null);
       setPageError("Not enough stars for this reward yet.");
       return;
     }
@@ -151,13 +189,21 @@ export default function KidRewardsPage() {
 
     setRedeemingRewardId(null);
 
-    if (updateError) {
-      setPageError(updateError.message);
+    if (updateError || !updatedKid) {
+      setPageError(updateError?.message || "Unable to redeem this reward.");
       return;
     }
 
     setKid(updatedKid as Kid);
-    setPageMessage(`${kid.name} redeemed "${reward.title}" for ${rewardCost} stars.`);
+    setConfirmingRewardId(null);
+
+    const rewardName = reward.is_mystery ? "your mystery reward" : `"${reward.title}"`;
+
+    setPageMessage(
+      `${kid.name} redeemed ${rewardName} for ${rewardCost} ${
+        rewardCost === 1 ? "star" : "stars"
+      }.`
+    );
   }
 
   const currentStars = kid?.stars ?? 0;
@@ -189,7 +235,19 @@ export default function KidRewardsPage() {
       <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
         <div className="mx-auto max-w-5xl">
           <section className="rounded-[2rem] border border-[var(--danger-border)] bg-white p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
-            <p className="text-sm text-[var(--danger-text)]">Kid not found.</p>
+            <p className="text-sm text-[var(--danger-text)]">
+              {pageError || "Kid not found."}
+            </p>
+            {pageError === "You are not logged in." && (
+              <div className="mt-5">
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+                >
+                  Log in to your household
+                </Link>
+              </div>
+            )}
           </section>
         </div>
       </main>
@@ -234,17 +292,6 @@ export default function KidRewardsPage() {
                 </div>
               </div>
 
-{pageError && pageError === "You are not logged in." && (
-  <div className="mt-5">
-    <Link
-      href="/login"
-      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-    >
-      Log in to your household
-    </Link>
-  </div>
-)}
-
               <div className="min-w-[220px] rounded-[1.75rem] border border-[var(--star-border)] bg-[linear-gradient(135deg,_#fff7d6_0%,_#ffe7b8_100%)] p-5 shadow-[0_14px_30px_rgba(138,90,0,0.12)]">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--star-text)]">
                   Star balance
@@ -253,7 +300,9 @@ export default function KidRewardsPage() {
                   <span className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
                     {kid.stars ?? 0}
                   </span>
-                  <span className="pb-1 text-sm font-medium text-[var(--star-text)]">stars</span>
+                  <span className="pb-1 text-sm font-medium text-[var(--star-text)]">
+                    stars
+                  </span>
                 </div>
                 <p className="mt-2 text-sm text-[var(--foreground-soft)]">
                   Level {kid.level ?? 1} helper
@@ -306,10 +355,10 @@ export default function KidRewardsPage() {
 
           <div className="rounded-[1.5rem] border border-[var(--border-soft)] bg-white/80 p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
-              Motivation loop
+              Ready to choose
             </p>
             <p className="mt-3 text-sm leading-6 text-[var(--foreground-soft)]">
-              Keep chores, stars, and rewards connected so progress always feels visible.
+              Choose a reward, confirm your choice, and your stars will be used right away.
             </p>
           </div>
         </section>
@@ -328,7 +377,9 @@ export default function KidRewardsPage() {
 
           {rewards.length === 0 ? (
             <div className="mt-4 rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--panel-soft)] p-8">
-              <p className="text-sm text-[var(--muted)]">No rewards are available right now.</p>
+              <p className="text-sm text-[var(--muted)]">
+                No rewards are available right now.
+              </p>
             </div>
           ) : (
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -336,6 +387,8 @@ export default function KidRewardsPage() {
                 const rewardCost = reward.cost_stars ?? 0;
                 const canRedeem = currentStars >= rewardCost;
                 const starsNeeded = Math.max(rewardCost - currentStars, 0);
+                const isConfirming = confirmingRewardId === reward.id;
+                const isRedeeming = redeemingRewardId === reward.id;
 
                 return (
                   <article
@@ -354,7 +407,7 @@ export default function KidRewardsPage() {
                           </h3>
 
                           <span className="inline-flex rounded-full border border-[var(--star-border)] bg-[var(--star-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--star-text)]">
-                            {rewardCost} stars
+                            {rewardCost} {rewardCost === 1 ? "star" : "stars"}
                           </span>
 
                           {reward.is_mystery ? (
@@ -383,22 +436,54 @@ export default function KidRewardsPage() {
                         </div>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => handleRedeemReward(reward)}
-                        disabled={!canRedeem || redeemingRewardId === reward.id}
-                        className={`inline-flex min-h-11 w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                          canRedeem
-                            ? "bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(15,118,110,0.22)] hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] active:translate-y-0"
-                            : "cursor-not-allowed border border-[var(--border-soft)] bg-[var(--panel-muted)] text-[var(--muted)]"
-                        }`}
-                      >
-                        {redeemingRewardId === reward.id
-                          ? "Redeeming..."
-                          : canRedeem
-                          ? "Redeem reward"
-                          : "Not enough stars yet"}
-                      </button>
+                      {isConfirming ? (
+                        <div className="rounded-[1.25rem] border border-[var(--star-border)] bg-[var(--star-soft)] p-4">
+                          <p className="text-sm font-semibold text-[var(--foreground)]">
+                            Are you sure?
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-[var(--foreground-soft)]">
+                            This will use {rewardCost}{" "}
+                            {rewardCost === 1 ? "star" : "stars"} right away.
+                          </p>
+
+                          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                            <button
+                              type="button"
+                              onClick={() => handleRedeemReward(reward)}
+                              disabled={isRedeeming}
+                              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,118,110,0.20)] transition-all hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isRedeeming
+                                ? "Redeeming..."
+                                : `Yes, redeem for ${rewardCost} ${
+                                    rewardCost === 1 ? "star" : "stars"
+                                  }`}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={cancelRewardConfirmation}
+                              disabled={isRedeeming}
+                              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Not yet
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startRewardConfirmation(reward)}
+                          disabled={!canRedeem || redeemingRewardId !== null}
+                          className={`inline-flex min-h-11 w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                            canRedeem
+                              ? "bg-[var(--accent)] text-white shadow-[0_12px_24px_rgba(15,118,110,0.22)] hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] active:translate-y-0"
+                              : "cursor-not-allowed border border-[var(--border-soft)] bg-[var(--panel-muted)] text-[var(--muted)]"
+                          }`}
+                        >
+                          {canRedeem ? "Redeem reward" : "Not enough stars yet"}
+                        </button>
+                      )}
                     </div>
                   </article>
                 );

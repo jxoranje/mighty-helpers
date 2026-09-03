@@ -308,9 +308,6 @@ export default function RewardsPage() {
               <Link href="/login" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90">
                 Log in to your household
               </Link>
-              <Link href="/" className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-5 py-3 text-sm font-medium text-[var(--foreground)] hover:bg-white">
-                Back to home
-              </Link>
             </div>
           </section>
         </div>
@@ -327,14 +324,15 @@ export default function RewardsPage() {
         <section className="relative mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.95),_rgba(255,255,255,0.55)_35%,_transparent_65%)]" />
           <div className="relative p-5 sm:p-8 md:p-10">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button type="button" onClick={() => router.push("/")} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-white">
-                ← Back to home
-              </button>
-              <button type="button" onClick={() => router.push("/dashboard")} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-white">
-                Back to manage household
-              </button>
-            </div>
+<div className="flex justify-end">
+  <button
+    type="button"
+    onClick={() => router.push("/dashboard")}
+    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-white"
+  >
+    Back to Parent Dashboard
+  </button>
+</div>
 
             <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
               <div>

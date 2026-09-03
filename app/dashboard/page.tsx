@@ -416,15 +416,14 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                  Adult hub
+                   Parent Dashboard
                 </p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                  Settings | Manage your household
-                </h1>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
-                  Update kids, oversee chores, tune rewards, and keep the whole system moving
-                  without clutter.
-                </p>
+                  <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                  Your household, all in one place
+                  </h1>
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
+                    Manage your helpers, build chores and rewards, and keep your household running smoothly.
+                    </p>
               </div>
 
               {pageError && pageError === "You are not logged in." && (
@@ -439,12 +438,7 @@ export default function DashboardPage() {
               )}
 
               <div className="flex flex-wrap gap-2">
-                <Link
-                  href="/"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-                >
-                  Back to home
-                </Link>
+
                 <Link
                   href="/kids"
                   className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,118,110,0.28)] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] active:translate-y-0"
@@ -478,66 +472,28 @@ export default function DashboardPage() {
 
             {!pageError && (
               <>
-                <section className="mt-8">
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {[
-                      {
-                        href: "/chores",
-                        eyebrow: "Library",
-                        title: "Chores",
-                        body: "Create and refine the tasks your household uses.",
-                      },
-                      {
-                        href: "/rewards",
-                        eyebrow: "Rewards",
-                        title: "Rewards",
-                        body: "Adjust star costs and shape the motivation loop.",
-                      },
-                      {
-                        href: "/approvals",
-                        eyebrow: "Review",
-                        title: "Approvals",
-                        body: "Approve completed chores and award stars cleanly.",
-                      },
-                    ].map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className="group rounded-[1.5rem] border border-[var(--border-soft)] bg-white/72 p-5 shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:border-[var(--border-strong)] hover:bg-white"
-                      >
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted-strong)]">
-                          {item.eyebrow}
-                        </p>
-                        <h2 className="mt-3 text-lg font-semibold text-[var(--foreground)]">
-                          {item.title}
-                        </h2>
-                        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                          {item.body}
-                        </p>
-                        <span className="mt-5 inline-flex text-sm font-medium text-[var(--accent)] transition-transform duration-200 group-hover:translate-x-1">
-                          Open →
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
+<section className="mt-8">
+  <div className="grid gap-6 xl:grid-cols-3">
+    <div className="xl:col-span-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+            Your helpers
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+            Kids
+          </h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Quick actions, progress, and profile updates in one place.
+          </p>
+        </div>
 
-                <section className="mt-10">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                        Kid snapshots
-                      </h2>
-                      <p className="mt-1 text-sm text-[var(--muted)]">
-                        Quick actions, progress, and profile updates in one place.
-                      </p>
-                    </div>
-                    <div className="rounded-full border border-[var(--border-soft)] bg-white/70 px-4 py-2 text-xs font-medium text-[var(--muted-strong)]">
-                      {kids.length} active {kids.length === 1 ? "profile" : "profiles"}
-                    </div>
-                  </div>
+        <div className="rounded-full border border-[var(--border-soft)] bg-white/70 px-4 py-2 text-xs font-medium text-[var(--muted-strong)]">
+          {kids.length} active {kids.length === 1 ? "profile" : "profiles"}
+        </div>
+      </div>
 
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {kids.length === 0 ? (
                       <div className="rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--panel-muted)] p-8">
                         <p className="text-sm text-[var(--muted)]">
@@ -775,8 +731,62 @@ export default function DashboardPage() {
                         );
                       })
                     )}
-                  </div>
-                </section>
+      </div>
+    </div>
+
+    <aside className="space-y-4">
+      <div className="rounded-[1.75rem] border border-[var(--border-soft)] bg-white/86 p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)] backdrop-blur">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+          Household tools
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+          Plan and motivate
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+          Set up chores and rewards that make your routine work.
+        </p>
+
+        <div className="mt-5 space-y-3">
+          <Link
+            href="/chores"
+            className="group block rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-muted)] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:bg-white"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-strong)]">
+              Chore library
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+              Chores
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Create, edit, and organize the tasks your household uses.
+            </p>
+            <span className="mt-4 inline-flex text-sm font-semibold text-[var(--accent)] transition-transform duration-200 group-hover:translate-x-1">
+              Manage chores →
+            </span>
+          </Link>
+
+          <Link
+            href="/rewards"
+            className="group block rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-muted)] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:bg-white"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-strong)]">
+              Reward library
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+              Rewards
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Create rewards and choose how many stars each one costs.
+            </p>
+            <span className="mt-4 inline-flex text-sm font-semibold text-[var(--accent)] transition-transform duration-200 group-hover:translate-x-1">
+              Manage rewards →
+            </span>
+          </Link>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
 
                 <section className="mt-10 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
                   <div className="rounded-[1.75rem] border border-[var(--border-soft)] bg-[var(--panel-muted)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
@@ -951,7 +961,7 @@ export default function DashboardPage() {
             {!pageError && householdId && (
               <section className="mt-8 border-t border-[var(--border-soft)] pt-6">
                 <p className="text-xs text-[var(--muted)]">
-                  Household connected and adult hub loaded successfully.
+                  Household connected and parent dashboard loaded successfully.
                 </p>
 
                 <div className="mt-4">

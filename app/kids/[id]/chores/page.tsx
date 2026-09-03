@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 
@@ -19,10 +19,12 @@ type ChoreRelation =
   | {
       title?: string;
       recurrence_type?: RecurrenceType;
+      star_value?: number | null;
     }
   | {
       title?: string;
       recurrence_type?: RecurrenceType;
+      star_value?: number | null;
     }[]
   | null;
 
@@ -44,6 +46,7 @@ type ChoreRow = {
   title: string;
   description: string | null;
   recurrence_type: RecurrenceType;
+  star_value: number | null;
   is_active: boolean;
 };
 
@@ -53,22 +56,34 @@ type KidChoreItem = {
   chore_id: string;
   title: string;
   recurrence_type: RecurrenceType | null;
-  status: "assigned" | "done" | "recurring";
+  status: "assigned" | "completed" | "recurring";
   assigned_for_date: string | null;
   notes: string | null;
   description?: string | null;
+  star_value: number;
+};
+
+type CompleteKidChoreResult = {
+  assignment_id: string;
+  assignment_status: string;
+  kid_id: string;
+  stars: number;
+  stars_earned: number;
 };
 
 function getChoreField(
   relation: ChoreRelation,
-  field: "title" | "recurrence_type"
+  field: "title" | "recurrence_type" | "star_value"
 ) {
-  if (!relation) return "";
-  if (Array.isArray(relation)) {
-    const value = relation[0]?.[field];
-    return typeof value === "string" ? value : "";
+  if (!relation) return null;
+
+  const record = Array.isArray(relation) ? relation[0] : relation;
+  const value = record?.[field];
+
+  if (field === "star_value") {
+    return typeof value === "number" ? value : 0;
   }
-  const value = relation[field];
+
   return typeof value === "string" ? value : "";
 }
 
@@ -82,11 +97,12 @@ function normalizeAssignment(row: AssignmentRow): KidChoreItem {
     id: row.id,
     source: "assignment",
     chore_id: row.chore_id,
-    title: getChoreField(row.chores, "title"),
+    title: (getChoreField(row.chores, "title") as string) || "Chore",
     recurrence_type: recurrenceType || null,
-    status: row.status === "done" ? "done" : "assigned",
+    status: row.status === "approved" ? "completed" : "assigned",
     assigned_for_date: row.assigned_for_date,
     notes: row.notes,
+    star_value: (getChoreField(row.chores, "star_value") as number) || 0,
   };
 }
 
@@ -101,12 +117,13 @@ function normalizeRecurringChore(row: ChoreRow): KidChoreItem {
     assigned_for_date: null,
     notes: null,
     description: row.description,
+    star_value: row.star_value ?? 0,
   };
 }
 
 function getStatusStyles(status: KidChoreItem["status"]) {
   switch (status) {
-    case "done":
+    case "completed":
       return "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]";
     case "recurring":
       return "border-[var(--border-strong)] bg-white/80 text-[var(--foreground-soft)]";
@@ -117,8 +134,8 @@ function getStatusStyles(status: KidChoreItem["status"]) {
 
 function getStatusLabel(status: KidChoreItem["status"]) {
   switch (status) {
-    case "done":
-      return "Waiting for approval";
+    case "completed":
+      return "Completed";
     case "recurring":
       return "Available today";
     default:
@@ -142,9 +159,9 @@ function getRecurrenceLabel(recurrenceType: RecurrenceType | null) {
 }
 
 export default function KidChoresPage() {
-  const supabase = createBrowserClient();
-  const params = useParams();
-  const kidId = typeof params.id === "string" ? params.id : "";
+  const supabase = useMemo(() => createBrowserClient(), []);
+  const params = useParams<{ id: string }>();
+  const kidId = params.id;
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
@@ -153,8 +170,11 @@ export default function KidChoresPage() {
   const [kid, setKid] = useState<KidRow | null>(null);
   const [choreItems, setChoreItems] = useState<KidChoreItem[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [confirmingItemId, setConfirmingItemId] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadKidChores() {
       setLoading(true);
       setPageError("");
@@ -171,6 +191,8 @@ export default function KidChoresPage() {
         .select("id, name, household_id, stars, level")
         .eq("id", kidId)
         .maybeSingle();
+
+      if (cancelled) return;
 
       if (kidError) {
         setPageError(kidError.message);
@@ -196,11 +218,13 @@ export default function KidChoresPage() {
           status,
           assigned_for_date,
           notes,
-          chores!chore_assignments_chore_id_fkey(title, recurrence_type)
+          chores!chore_assignments_chore_id_fkey(title, recurrence_type, star_value)
         `)
         .eq("kid_id", kidId)
-        .in("status", ["assigned", "done"])
+        .in("status", ["assigned", "approved"])
         .order("assigned_for_date", { ascending: true, nullsFirst: true });
+
+      if (cancelled) return;
 
       if (assignmentsError) {
         setPageError(assignmentsError.message);
@@ -210,11 +234,15 @@ export default function KidChoresPage() {
 
       const { data: recurringRows, error: recurringError } = await supabase
         .from("chores")
-        .select("id, household_id, kid_id, title, description, recurrence_type, is_active")
+        .select(
+          "id, household_id, kid_id, title, description, recurrence_type, star_value, is_active"
+        )
         .eq("kid_id", kidId)
         .eq("is_active", true)
         .in("recurrence_type", ["daily", "weekly", "biweekly"])
         .order("title", { ascending: true });
+
+      if (cancelled) return;
 
       if (recurringError) {
         setPageError(recurringError.message);
@@ -227,7 +255,10 @@ export default function KidChoresPage() {
 
       const assignedRecurringChoreIds = new Set(
         normalizedAssignments
-          .filter((item) => item.recurrence_type && item.recurrence_type !== "one_off")
+          .filter(
+            (item) =>
+              item.recurrence_type && item.recurrence_type !== "one_off"
+          )
           .map((item) => item.chore_id)
       );
 
@@ -241,153 +272,84 @@ export default function KidChoresPage() {
     }
 
     loadKidChores();
+
+    return () => {
+      cancelled = true;
+    };
   }, [kidId, supabase]);
 
-  async function markAsDone(item: KidChoreItem) {
+  function startChoreConfirmation(item: KidChoreItem) {
+    setPageError("");
+    setMessage("");
+    setConfirmingItemId(item.id);
+  }
+
+  function cancelChoreConfirmation() {
+    setConfirmingItemId(null);
+  }
+
+  async function completeChore(item: KidChoreItem) {
+    if (!kid) {
+      setPageError("Kid profile not loaded.");
+      return;
+    }
+
     setPageError("");
     setMessage("");
     setUpdatingId(item.id);
 
     try {
-      let updatedAssignment: AssignmentRow | null = null;
+      const assignmentId =
+        item.source === "assignment" ? item.id : null;
 
-      if (item.source === "assignment") {
-        const { data, error } = await supabase
-          .from("chore_assignments")
-          .update({ status: "done" } as never)
-          .eq("id", item.id)
-          .select(`
-            id,
-            household_id,
-            kid_id,
-            chore_id,
-            status,
-            assigned_for_date,
-            notes,
-            chores!chore_assignments_chore_id_fkey(title, recurrence_type)
-          `)
-          .single();
+      const { data, error } = await supabase
+        .rpc("complete_kid_chore", {
+          p_kid_id: kid.id,
+          p_chore_id: item.chore_id,
+          p_assignment_id: assignmentId,
+        })
+        .single();
 
-        if (error) {
-          throw error;
-        }
-
-        updatedAssignment = data as AssignmentRow;
-      } else {
-        if (!kid) {
-          throw new Error("Kid not loaded.");
-        }
-
-        const { data: existingAssignmentRaw, error: existingError } = await supabase
-          .from("chore_assignments")
-          .select(`
-            id,
-            household_id,
-            kid_id,
-            chore_id,
-            status,
-            assigned_for_date,
-            notes,
-            chores!chore_assignments_chore_id_fkey(title, recurrence_type)
-          `)
-          .eq("kid_id", kid.id)
-          .eq("chore_id", item.chore_id)
-          .order("assigned_for_date", { ascending: false, nullsFirst: false })
-          .limit(1)
-          .maybeSingle();
-
-        const existingAssignment = existingAssignmentRaw as AssignmentRow | null;
-
-        if (existingError) {
-          throw existingError;
-        }
-
-        if (existingAssignment) {
-          const { data, error } = await supabase
-            .from("chore_assignments")
-            .update({ status: "done" } as never)
-            .eq("id", existingAssignment.id)
-            .select(`
-              id,
-              household_id,
-              kid_id,
-              chore_id,
-              status,
-              assigned_for_date,
-              notes,
-              chores!chore_assignments_chore_id_fkey(title, recurrence_type)
-            `)
-            .single();
-
-          if (error) {
-            throw error;
-          }
-
-          updatedAssignment = data as AssignmentRow;
-        } else {
-          const { data: inserted, error: insertError } = await supabase
-            .from("chore_assignments")
-            .insert({
-              household_id: kid.household_id,
-              kid_id: kid.id,
-              chore_id: item.chore_id,
-              status: "done",
-              assigned_for_date: null,
-              notes: null,
-            } as never)
-            .select(`
-              id,
-              household_id,
-              kid_id,
-              chore_id,
-              status,
-              assigned_for_date,
-              notes,
-              chores!chore_assignments_chore_id_fkey(title, recurrence_type)
-            `)
-            .single();
-
-          if (insertError) {
-            throw insertError;
-          }
-
-          updatedAssignment = inserted as AssignmentRow;
-        }
+      if (error) {
+        throw error;
       }
 
-      if (!updatedAssignment) {
-        throw new Error("No updated assignment returned.");
+      const result = data as CompleteKidChoreResult | null;
+
+      if (!result) {
+        throw new Error("No completion result was returned.");
       }
 
-      const normalized = normalizeAssignment(updatedAssignment);
+      setKid((current) =>
+        current ? { ...current, stars: result.stars } : current
+      );
 
-      setChoreItems((prev) => {
-        const replaced = prev.map((entry) =>
-          entry.source === "assignment" && entry.id === normalized.id
-            ? normalized
+      setChoreItems((previous) =>
+        previous.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                id: result.assignment_id,
+                source: "assignment",
+                status: "completed",
+              }
             : entry
-        );
+        )
+      );
 
-        const withoutRecurringDuplicate = replaced.filter(
-          (entry) =>
-            !(
-              entry.source === "recurring" &&
-              entry.chore_id === normalized.chore_id
-            )
-        );
+      setConfirmingItemId(null);
 
-        const alreadyPresent = withoutRecurringDuplicate.some(
-          (entry) => entry.source === "assignment" && entry.id === normalized.id
-        );
-
-        return alreadyPresent
-          ? withoutRecurringDuplicate
-          : [...withoutRecurringDuplicate, normalized];
-      });
-
-      setMessage("Nice job! This chore is now waiting for parent approval.");
-    } catch (err: any) {
-      setPageError(err?.message || "Unable to mark chore as done.");
+      setMessage(
+        `Awesome job! You earned ${result.stars_earned} ${
+          result.stars_earned === 1 ? "star" : "stars"
+        } for "${item.title}".`
+      );
+    } catch (err: unknown) {
+      setPageError(
+        err instanceof Error
+          ? err.message
+          : "Unable to complete this chore."
+      );
     } finally {
       setUpdatingId(null);
     }
@@ -398,8 +360,8 @@ export default function KidChoresPage() {
     [choreItems]
   );
 
-  const waitingItems = useMemo(
-    () => choreItems.filter((item) => item.status === "done"),
+  const completedItems = useMemo(
+    () => choreItems.filter((item) => item.status === "completed"),
     [choreItems]
   );
 
@@ -438,7 +400,7 @@ export default function KidChoresPage() {
                   {kid?.name}&rsquo;s chores
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-[var(--muted)] sm:text-base">
-                  Finish chores here, then wait for an adult to approve them and award your stars.
+                  Finish a chore, confirm it, and earn stars right away.
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -466,7 +428,9 @@ export default function KidChoresPage() {
                   <span className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
                     {kid?.stars ?? 0}
                   </span>
-                  <span className="pb-1 text-sm font-medium text-[var(--star-text)]">stars</span>
+                  <span className="pb-1 text-sm font-medium text-[var(--star-text)]">
+                    stars
+                  </span>
                 </div>
                 <p className="mt-2 text-sm text-[var(--foreground-soft)]">
                   Level {kid?.level ?? 1} helper
@@ -507,13 +471,13 @@ export default function KidChoresPage() {
 
           <div className="rounded-[1.5rem] border border-[var(--border-soft)] bg-white/80 p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
-              Waiting
+              Completed
             </p>
             <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-              {waitingItems.length}
+              {completedItems.length}
             </p>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Finished chores waiting for approval.
+              Chores finished and stars earned.
             </p>
           </div>
 
@@ -536,28 +500,31 @@ export default function KidChoresPage() {
               Current chores
             </h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Do the chore, tap the button, and your grown-up can approve it later.
+              Do the chore, confirm it, and collect your stars.
             </p>
           </div>
 
           {choreItems.length === 0 ? (
             <div className="mt-4 rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--panel-soft)] p-8">
-              <p className="text-sm text-[var(--muted)]">No chores assigned right now.</p>
+              <p className="text-sm text-[var(--muted)]">
+                No chores assigned right now.
+              </p>
             </div>
           ) : (
             <div className="mt-5 space-y-4">
               {choreItems.map((item) => {
                 const isAssigned = item.status === "assigned";
-                const isDone = item.status === "done";
+                const isCompleted = item.status === "completed";
                 const isRecurringOnly = item.source === "recurring";
                 const isUpdating = updatingId === item.id;
+                const isConfirming = confirmingItemId === item.id;
                 const isDaily = item.recurrence_type === "daily";
 
                 return (
                   <article
                     key={item.id}
                     className={`rounded-[1.75rem] border p-5 shadow-sm transition-transform duration-200 ${
-                      isDone
+                      isCompleted
                         ? "border-[var(--success-border)] bg-[var(--success-soft)]"
                         : isRecurringOnly
                         ? "border-[var(--border-soft)] bg-white/78"
@@ -577,6 +544,11 @@ export default function KidChoresPage() {
                             )}`}
                           >
                             {getStatusLabel(item.status)}
+                          </span>
+
+                          <span className="inline-flex rounded-full border border-[var(--star-border)] bg-[var(--star-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--star-text)]">
+                            {item.star_value}{" "}
+                            {item.star_value === 1 ? "star" : "stars"}
                           </span>
 
                           <span className="inline-flex rounded-full border border-[var(--border-soft)] bg-white/90 px-2.5 py-1 text-xs font-semibold text-[var(--foreground-soft)]">
@@ -604,28 +576,66 @@ export default function KidChoresPage() {
                           </p>
                         )}
 
-                        {isDaily && (
+                        {isDaily && !isCompleted && (
                           <p className="mt-3 text-xs font-medium text-[var(--muted-strong)]">
-                            Daily chores can be assigned again after approval.
+                            Daily chores can be completed again when they return.
                           </p>
                         )}
                       </div>
 
-                      <div className="md:min-w-[210px]">
-                        {isAssigned || isRecurringOnly ? (
+                      <div className="md:min-w-[230px]">
+                        {(isAssigned || isRecurringOnly) && !isConfirming && (
                           <button
                             type="button"
-                            onClick={() => markAsDone(item)}
-                            disabled={isUpdating}
+                            onClick={() => startChoreConfirmation(item)}
+                            disabled={updatingId !== null}
                             className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(15,118,110,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {isUpdating ? "Saving..." : "I did it!"}
+                            I did it!
                           </button>
-                        ) : isDone ? (
-                          <div className="rounded-2xl border border-[var(--success-border)] bg-white/70 px-4 py-3 text-sm font-medium text-[var(--success-text)]">
-                            Waiting for parent approval
+                        )}
+
+                        {isConfirming && (
+                          <div className="rounded-2xl border border-[var(--star-border)] bg-[var(--star-soft)] p-4">
+                            <p className="text-sm font-semibold text-[var(--foreground)]">
+                              Are you sure?
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--foreground-soft)]">
+                              You will earn {item.star_value}{" "}
+                              {item.star_value === 1 ? "star" : "stars"} right away.
+                            </p>
+
+                            <div className="mt-4 flex flex-col gap-2">
+                              <button
+                                type="button"
+                                onClick={() => completeChore(item)}
+                                disabled={isUpdating}
+                                className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,118,110,0.20)] transition-all hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isUpdating
+                                  ? "Saving..."
+                                  : `Yes, earn ${item.star_value} ${
+                                      item.star_value === 1 ? "star" : "stars"
+                                    }`}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={cancelChoreConfirmation}
+                                disabled={isUpdating}
+                                className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Not yet
+                              </button>
+                            </div>
                           </div>
-                        ) : null}
+                        )}
+
+                        {isCompleted && (
+                          <div className="rounded-2xl border border-[var(--success-border)] bg-white/70 px-4 py-3 text-sm font-medium text-[var(--success-text)]">
+                            Completed — stars earned!
+                          </div>
+                        )}
                       </div>
                     </div>
                   </article>
