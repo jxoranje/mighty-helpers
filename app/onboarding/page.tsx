@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 import {
@@ -11,11 +11,6 @@ import {
 } from "@/lib/chore-categories";
 import { getKidAvatar } from "@/lib/kid-avatar";
 import logo from "@/app/components/images/logo.png";
-
-type HouseholdMemberLookup = {
-  household_id: string;
-  role: string;
-};
 
 type Household = {
   id: string;
@@ -40,6 +35,11 @@ type StarterChore = {
   starValue: number;
   recurrenceType: "daily" | "weekly";
   category: ChoreCategoryKey;
+};
+
+type EnsureHouseholdResult = {
+  household_id: string;
+  created: boolean;
 };
 
 const STARTER_CHORES: StarterChore[] = [
@@ -174,6 +174,8 @@ export default function OnboardingPage() {
   const [templateKidId, setTemplateKidId] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadOnboarding() {
       setLoading(true);
       setError("");
@@ -184,28 +186,60 @@ export default function OnboardingPage() {
         error: userError,
       } = await supabase.auth.getUser();
 
+      if (cancelled) return;
+
       if (userError || !user) {
         router.replace("/login");
         return;
       }
 
-      const { data: memberRow, error: memberError } = await supabase
-        .from("household_members")
-        .select("household_id, role")
+      /*
+       * Consent must be checked before household recovery.
+       * The ensure_my_household() SQL function should enforce this too,
+       * but this redirect provides the correct user experience.
+       */
+      const { data: consent, error: consentError } = await supabase
+        .from("user_consents")
+        .select("terms_accepted_at")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (memberError) {
-        setError(memberError.message);
+      if (cancelled) return;
+
+      if (consentError) {
+        setError(consentError.message);
         setLoading(false);
         return;
       }
 
-      const member = memberRow as HouseholdMemberLookup | null;
+      if (!consent?.terms_accepted_at) {
+        router.replace("/accept-terms?next=/onboarding");
+        return;
+      }
 
-      if (!member?.household_id) {
+      /*
+       * Self-healing setup:
+       * - Returns the existing household for a user who already has one.
+       * - Creates "My Household" plus an owner membership if missing.
+       */
+      const { data: householdResult, error: recoveryError } = await supabase
+        .rpc("ensure_my_household")
+        .single();
+
+      if (cancelled) return;
+
+      const recoveredHousehold = householdResult as EnsureHouseholdResult | null;
+      const householdId = recoveredHousehold?.household_id;
+
+      if (recoveryError || !householdId) {
+        console.error("Household recovery failed", {
+          userId: user.id,
+          error: recoveryError,
+        });
+
         setError(
-          "We could not find your household setup yet. Please refresh once, or contact support if this continues."
+          recoveryError?.message ||
+            "We could not complete your household setup. Please try again."
         );
         setLoading(false);
         return;
@@ -214,11 +248,16 @@ export default function OnboardingPage() {
       const { data: householdRow, error: householdError } = await supabase
         .from("households")
         .select("id, name, onboarding_completed_at")
-        .eq("id", member.household_id)
+        .eq("id", householdId)
         .single();
 
-      if (householdError) {
-        setError(householdError.message);
+      if (cancelled) return;
+
+      if (householdError || !householdRow) {
+        setError(
+          householdError?.message ||
+            "Your household was created but could not be loaded. Please try again."
+        );
         setLoading(false);
         return;
       }
@@ -236,6 +275,8 @@ export default function OnboardingPage() {
         .eq("household_id", typedHousehold.id)
         .is("archived_at", null)
         .order("created_at", { ascending: true });
+
+      if (cancelled) return;
 
       if (kidsError) {
         setError(kidsError.message);
@@ -257,6 +298,10 @@ export default function OnboardingPage() {
     }
 
     loadOnboarding();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router, supabase]);
 
   async function saveHouseholdName() {
@@ -454,10 +499,14 @@ export default function OnboardingPage() {
         <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-3xl items-center justify-center">
           <section className="w-full rounded-[2rem] border border-[var(--danger-border)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
             <h1 className="text-2xl font-semibold text-[var(--foreground)]">
-              We need one more moment
+              We couldn’t finish setting up your household
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--danger-text)]">
               {error}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Please refresh and try again. If this continues, contact support
+              and include code: HOUSEHOLD_SETUP_FAILED.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <button
@@ -783,7 +832,8 @@ export default function OnboardingPage() {
                           {template.title}
                         </h3>
                         <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                          {template.starValue} {template.starValue === 1 ? "star" : "stars"} ·{" "}
+                          {template.starValue}{" "}
+                          {template.starValue === 1 ? "star" : "stars"} ·{" "}
                           {template.recurrenceType}
                         </p>
                       </button>
@@ -794,7 +844,9 @@ export default function OnboardingPage() {
                 <p className="mt-4 text-sm text-[var(--muted)]">
                   {selectedCount === 0
                     ? "No problem—you can begin with a blank chore list."
-                    : `${selectedCount} starter ${selectedCount === 1 ? "chore" : "chores"} selected.`}
+                    : `${selectedCount} starter ${
+                        selectedCount === 1 ? "chore" : "chores"
+                      } selected.`}
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -830,7 +882,9 @@ export default function OnboardingPage() {
                   Your household is ready to grow.
                 </h2>
                 <p className="mt-4 text-base leading-8 text-[var(--muted)] sm:text-lg">
-                  Start your 7-day free trial to unlock your Mighty Helpers dashboard. Stripe securely collects your payment details now; you will not be charged until the trial ends.
+                  Start your 7-day free trial to unlock your Mighty Helpers dashboard.
+                  Stripe securely collects your payment details now; you will not
+                  be charged until the trial ends.
                 </p>
 
                 <div className="mt-8 rounded-[1.75rem] border border-[var(--border-soft)] bg-white/78 p-5 text-left shadow-sm">
@@ -842,7 +896,8 @@ export default function OnboardingPage() {
                       • {kids.length} {kids.length === 1 ? "helper" : "helpers"} ready to go
                     </li>
                     <li>
-                      • {selectedCount} starter {selectedCount === 1 ? "chore" : "chores"} selected
+                      • {selectedCount} starter{" "}
+                      {selectedCount === 1 ? "chore" : "chores"} selected
                     </li>
                     <li>
                       • A clear place to approve tasks, award stars, and manage rewards
