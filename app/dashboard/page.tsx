@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 
 type HouseholdMemberLookup = {
   household_id: string;
 };
+
+type KidColor = "blue" | "orange" | "green" | "purple" | "pink" | "yellow";
 
 type Kid = {
   id: string;
@@ -17,11 +19,60 @@ type Kid = {
   stars: number | null;
   level: number | null;
   streak_days: number | null;
+  color: KidColor | null;
   archived_at?: string | null;
 };
 
+const KID_SELECT_COLUMNS =
+  "id, household_id, name, avatar, stars, level, streak_days, color";
+
+const KID_COLOR_OPTIONS: { value: KidColor; label: string; swatch: string }[] = [
+  { value: "blue", label: "Blue", swatch: "bg-[#7a84ff]" },
+  { value: "orange", label: "Orange", swatch: "bg-[#ffb8a6]" },
+  { value: "green", label: "Green", swatch: "bg-[#8edfc3]" },
+  { value: "purple", label: "Purple", swatch: "bg-[#b79bff]" },
+  { value: "pink", label: "Pink", swatch: "bg-[#ff9fc0]" },
+  { value: "yellow", label: "Yellow", swatch: "bg-[#ffd76a]" },
+];
+
+function ColorPicker({
+  value,
+  onChange,
+  idPrefix,
+}: {
+  value: KidColor;
+  onChange: (value: KidColor) => void;
+  idPrefix: string;
+}) {
+  return (
+    <div>
+      <p className="mb-2 block text-sm font-medium text-[var(--foreground)]">
+        Tile color
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {KID_COLOR_OPTIONS.map((option) => (
+          <button
+            key={`${idPrefix}-${option.value}`}
+            type="button"
+            onClick={() => onChange(option.value)}
+            aria-pressed={value === option.value}
+            className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+              value === option.value
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                : "border-[var(--border-strong)] bg-white text-[var(--foreground)]"
+            }`}
+          >
+            <span className={`h-3 w-3 rounded-full ${option.swatch}`} />
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const supabase = createBrowserClient();
+  const supabase = useMemo(() => createBrowserClient(), []);
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -41,17 +92,21 @@ export default function DashboardPage() {
   const [kidStars, setKidStars] = useState("0");
   const [kidLevel, setKidLevel] = useState("1");
   const [kidAvatar, setKidAvatar] = useState("");
+  const [kidColor, setKidColor] = useState<KidColor>("blue");
 
   const [newKidName, setNewKidName] = useState("");
   const [newKidStars, setNewKidStars] = useState("0");
   const [newKidLevel, setNewKidLevel] = useState("1");
   const [newKidAvatar, setNewKidAvatar] = useState("");
+  const [newKidColor, setNewKidColor] = useState<KidColor>("blue");
 
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [subscriptionError, setSubscriptionError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadDashboard() {
       setLoading(true);
       setPageError("");
@@ -61,6 +116,8 @@ export default function DashboardPage() {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
+
+      if (cancelled) return;
 
       if (userError || !user) {
         setPageError("You are not logged in.");
@@ -73,6 +130,8 @@ export default function DashboardPage() {
         .select("household_id")
         .eq("user_id", user.id)
         .maybeSingle();
+
+      if (cancelled) return;
 
       const typedMemberRow = memberRow as HouseholdMemberLookup | null;
 
@@ -92,10 +151,12 @@ export default function DashboardPage() {
 
       const { data: kidRows, error: kidsError } = await supabase
         .from("kids")
-        .select("id, household_id, name, avatar, stars, level, streak_days, archived_at")
+        .select(`${KID_SELECT_COLUMNS}, archived_at`)
         .eq("household_id", typedMemberRow.household_id)
         .is("archived_at", null)
         .order("name", { ascending: true });
+
+      if (cancelled) return;
 
       if (kidsError) {
         setPageError(kidsError.message);
@@ -106,6 +167,8 @@ export default function DashboardPage() {
       const { data: archivedRows, error: archivedError } = await (supabase.rpc as any)(
         "get_archived_kids"
       );
+
+      if (cancelled) return;
 
       if (archivedError) {
         setPageError(archivedError.message);
@@ -119,6 +182,10 @@ export default function DashboardPage() {
     }
 
     loadDashboard();
+
+    return () => {
+      cancelled = true;
+    };
   }, [supabase]);
 
   function resetEditForm() {
@@ -127,6 +194,7 @@ export default function DashboardPage() {
     setKidStars("0");
     setKidLevel("1");
     setKidAvatar("");
+    setKidColor("blue");
   }
 
   function resetNewKidForm() {
@@ -134,6 +202,7 @@ export default function DashboardPage() {
     setNewKidStars("0");
     setNewKidLevel("1");
     setNewKidAvatar("");
+    setNewKidColor("blue");
   }
 
   function startEditKid(kid: Kid) {
@@ -145,6 +214,7 @@ export default function DashboardPage() {
     setKidStars(String(kid.stars ?? 0));
     setKidLevel(String(kid.level ?? 1));
     setKidAvatar(kid.avatar ?? "");
+    setKidColor(kid.color ?? "blue");
   }
 
   async function handleEditKidSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -188,9 +258,10 @@ export default function DashboardPage() {
           avatar: trimmedAvatar || null,
           stars: parsedStars,
           level: parsedLevel,
+          color: kidColor,
         } as never)
         .eq("id", editingKidId)
-        .select("id, household_id, name, avatar, stars, level, streak_days")
+        .select(KID_SELECT_COLUMNS)
         .single();
 
       if (error) {
@@ -308,8 +379,9 @@ export default function DashboardPage() {
           avatar: trimmedAvatar || null,
           stars: parsedStars,
           level: parsedLevel,
+          color: newKidColor,
         } as never)
-        .select("id, household_id, name, avatar, stars, level, streak_days")
+        .select(KID_SELECT_COLUMNS)
         .single();
 
       if (error) {
@@ -597,6 +669,12 @@ export default function DashboardPage() {
                                       className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors duration-200 placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
                                     />
                                   </div>
+
+                                  <ColorPicker
+                                    value={kidColor}
+                                    onChange={setKidColor}
+                                    idPrefix={`edit-${kid.id}`}
+                                  />
                                 </div>
 
                                 <div className="mt-5 flex flex-col gap-2">
@@ -944,6 +1022,12 @@ export default function DashboardPage() {
                           className="w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors duration-200 placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
                         />
                       </div>
+
+                      <ColorPicker
+                        value={newKidColor}
+                        onChange={setNewKidColor}
+                        idPrefix="new-kid"
+                      />
 
                       <button
                         type="submit"
