@@ -69,7 +69,23 @@ type CompleteKidChoreResult = {
   kid_id: string;
   stars: number;
   stars_earned: number;
+  assigned_for_date: string | null;
 };
+
+/*
+ * Local-device "today" as YYYY-MM-DD. This is an approximation of the
+ * household's local day used only to decide whether a completed
+ * recurring chore should still show as "Completed" today, or should
+ * disappear so the recurring template becomes clickable again.
+ *
+ * The actual once-per-day enforcement always happens server-side in
+ * complete_kid_chore(), which uses the household's stored time zone.
+ * This client-side date is only for what the UI displays, never for
+ * granting or blocking stars.
+ */
+function getTodayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function getChoreField(
   relation: ChoreRelation,
@@ -253,21 +269,51 @@ export default function KidChoresPage() {
       const normalizedAssignments =
         ((assignmentRows as AssignmentRow[]) || []).map(normalizeAssignment);
 
-      const assignedRecurringChoreIds = new Set(
-        normalizedAssignments
+      const todayIso = getTodayIso();
+
+      /*
+       * Only show a recurring chore's completed assignment if it was
+       * completed today (by this approximate local date). Older
+       * approved assignments for daily/weekly/biweekly chores are
+       * history only — they should not stay pinned in this list
+       * forever, and they should not block the chore from showing up
+       * as available again.
+       *
+       * One-off completed assignments always stay visible, since they
+       * represent a single permanent completion.
+       */
+      const visibleAssignments = normalizedAssignments.filter((item) => {
+        if (item.status === "assigned") return true;
+
+        if (item.status === "completed") {
+          if (item.recurrence_type === "one_off") return true;
+          return item.assigned_for_date === todayIso;
+        }
+
+        return false;
+      });
+
+      const choresCompletedTodayIds = new Set(
+        visibleAssignments
           .filter(
             (item) =>
-              item.recurrence_type && item.recurrence_type !== "one_off"
+              item.status === "completed" && item.recurrence_type !== "one_off"
           )
           .map((item) => item.chore_id)
       );
 
+      /*
+       * Recurring templates always stay visible so a daily chore is
+       * available again the next day, UNLESS it was already completed
+       * today — in that case the completed assignment above already
+       * represents it for today.
+       */
       const normalizedRecurring = ((recurringRows as ChoreRow[]) || [])
-        .filter((row) => !assignedRecurringChoreIds.has(row.id))
+        .filter((row) => !choresCompletedTodayIds.has(row.id))
         .map(normalizeRecurringChore);
 
       setKid(typedKid);
-      setChoreItems([...normalizedAssignments, ...normalizedRecurring]);
+      setChoreItems([...visibleAssignments, ...normalizedRecurring]);
       setLoading(false);
     }
 
@@ -299,8 +345,7 @@ export default function KidChoresPage() {
     setUpdatingId(item.id);
 
     try {
-      const assignmentId =
-        item.source === "assignment" ? item.id : null;
+      const assignmentId = item.source === "assignment" ? item.id : null;
 
       const { data, error } = await supabase
         .rpc("complete_kid_chore", {
@@ -332,6 +377,7 @@ export default function KidChoresPage() {
                 id: result.assignment_id,
                 source: "assignment",
                 status: "completed",
+                assigned_for_date: result.assigned_for_date,
               }
             : entry
         )
@@ -345,11 +391,23 @@ export default function KidChoresPage() {
         } for "${item.title}".`
       );
     } catch (err: unknown) {
-      setPageError(
-        err instanceof Error
-          ? err.message
-          : "Unable to complete this chore."
-      );
+      /*
+       * Supabase RPC errors (PostgrestError) are plain objects, not
+       * instances of the built-in Error class, so `err instanceof
+       * Error` is always false for them. Checking for a `.message`
+       * property instead lets the real database error reach the
+       * screen — including messages like "This chore has already
+       * been completed for this period." — rather than always
+       * showing a generic fallback.
+       */
+      console.error("complete_kid_chore failed", err);
+
+      const detailedMessage =
+        typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: unknown }).message)
+          : "Unable to complete this chore.";
+
+      setPageError(detailedMessage || "Unable to complete this chore.");
     } finally {
       setUpdatingId(null);
     }
