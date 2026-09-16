@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
+import AppNav from "@/app/components/AppNav";
 
 type HouseholdMemberLookup = {
   household_id: string;
