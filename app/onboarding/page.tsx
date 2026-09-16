@@ -316,14 +316,19 @@ export default function OnboardingPage() {
   }, [router, supabase]);
 
   async function saveHouseholdName() {
-    if (!household) {
-      setError(
-        "Your household is not available yet. Please refresh and try again."
-      );
+    const trimmedName = householdName.trim();
+
+    if (!trimmedName) {
+      setError("Please give your household a name.");
       return;
     }
 
-    const trimmedName = householdName.trim();
+    if (!household) {
+      setError(
+        "Your setup is still loading. Please wait a moment, then try again."
+      );
+      return;
+    }
 
     if (!trimmedName) {
       setError("Please give your household a name.");
@@ -369,7 +374,7 @@ export default function OnboardingPage() {
       setSaving(false);
     }
   }
-  
+
   async function addKid() {
     if (!household) return;
 
