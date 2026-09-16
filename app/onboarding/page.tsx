@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
 import {
@@ -137,6 +137,7 @@ function StepPill({
       >
         {complete ? "✓" : number}
       </span>
+
       <span
         className={`text-xs font-semibold ${
           active ? "text-[var(--foreground)]" : "text-[var(--muted)]"
@@ -171,6 +172,7 @@ export default function OnboardingPage() {
     "make-bed",
     "tidy-up",
   ]);
+
   const [templateKidId, setTemplateKidId] = useState("");
 
   useEffect(() => {
@@ -181,123 +183,132 @@ export default function OnboardingPage() {
       setError("");
       setMessage("");
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (userError || !user) {
-        router.replace("/login");
-        return;
-      }
+        if (userError || !user) {
+          router.replace("/login");
+          return;
+        }
 
-      /*
-       * Consent must be checked before household recovery.
-       * The ensure_my_household() SQL function should enforce this too,
-       * but this redirect provides the correct user experience.
-       */
-      const { data: consent, error: consentError } = await supabase
-        .from("user_consents")
-        .select("terms_accepted_at")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        /*
+         * Consent must be checked before household recovery.
+         * The ensure_my_household() SQL function should enforce this too,
+         * but this redirect provides the correct user experience.
+         */
+        const { data: consent, error: consentError } = await supabase
+          .from("user_consents")
+          .select("terms_accepted_at")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (consentError) {
-        setError(consentError.message);
-        setLoading(false);
-        return;
-      }
+        if (consentError) {
+          throw consentError;
+        }
 
-      if (!consent?.terms_accepted_at) {
-        router.replace("/accept-terms?next=/onboarding");
-        return;
-      }
+        if (!consent?.terms_accepted_at) {
+          router.replace("/accept-terms?next=/onboarding");
+          return;
+        }
 
-      /*
-       * Self-healing setup:
-       * - Returns the existing household for a user who already has one.
-       * - Creates "My Household" plus an owner membership if missing.
-       */
-      const { data: householdResult, error: recoveryError } = await supabase
-        .rpc("ensure_my_household")
-        .single();
+        /*
+         * Self-healing setup:
+         * - Returns the existing household for a user who already has one.
+         * - Creates "My Household" plus an owner membership if missing.
+         */
+        const { data: householdResult, error: recoveryError } = await supabase
+          .rpc("ensure_my_household")
+          .single();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      const recoveredHousehold = householdResult as EnsureHouseholdResult | null;
-      const householdId = recoveredHousehold?.household_id;
+        if (recoveryError) {
+          throw recoveryError;
+        }
 
-      if (recoveryError || !householdId) {
-        console.error("Household recovery failed", {
-          userId: user.id,
-          error: recoveryError,
-        });
+        const recoveredHousehold =
+          householdResult as EnsureHouseholdResult | null;
 
-        setError(
-          recoveryError?.message ||
-            "We could not complete your household setup. Please try again."
-        );
-        setLoading(false);
-        return;
-      }
+        const householdId = recoveredHousehold?.household_id;
 
-      const { data: householdRow, error: householdError } = await supabase
-        .from("households")
-        .select("id, name, onboarding_completed_at")
-        .eq("id", householdId)
-        .single();
+        if (!householdId) {
+          throw new Error(
+            "Household setup did not return a household ID. Please try again."
+          );
+        }
 
-      if (cancelled) return;
+        const { data: householdRow, error: householdError } = await supabase
+          .from("households")
+          .select("id, name, onboarding_completed_at")
+          .eq("id", householdId)
+          .single();
 
-      if (householdError || !householdRow) {
-        setError(
-          householdError?.message ||
+        if (cancelled) return;
+
+        if (householdError) {
+          throw householdError;
+        }
+
+        if (!householdRow) {
+          throw new Error(
             "Your household was created but could not be loaded. Please try again."
-        );
-        setLoading(false);
-        return;
+          );
+        }
+
+        const typedHousehold = householdRow as Household;
+
+        if (typedHousehold.onboarding_completed_at) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        const { data: kidRows, error: kidsError } = await supabase
+          .from("kids")
+          .select("id, household_id, name, avatar, stars, level, streak_days")
+          .eq("household_id", typedHousehold.id)
+          .is("archived_at", null)
+          .order("created_at", { ascending: true });
+
+        if (cancelled) return;
+
+        if (kidsError) {
+          throw kidsError;
+        }
+
+        const loadedKids = (kidRows as Kid[]) || [];
+
+        setHousehold(typedHousehold);
+        setHouseholdName(typedHousehold.name);
+        setKids(loadedKids);
+
+        if (loadedKids.length > 0) {
+          setTemplateKidId(loadedKids[0].id);
+        }
+      } catch (err: unknown) {
+        console.error("Unable to prepare Mighty Helpers onboarding:", err);
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "We could not prepare your household setup. Please try again."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-
-      const typedHousehold = householdRow as Household;
-
-      if (typedHousehold.onboarding_completed_at) {
-        router.replace("/dashboard");
-        return;
-      }
-
-      const { data: kidRows, error: kidsError } = await supabase
-        .from("kids")
-        .select("id, household_id, name, avatar, stars, level, streak_days")
-        .eq("household_id", typedHousehold.id)
-        .is("archived_at", null)
-        .order("created_at", { ascending: true });
-
-      if (cancelled) return;
-
-      if (kidsError) {
-        setError(kidsError.message);
-        setLoading(false);
-        return;
-      }
-
-      const loadedKids = (kidRows as Kid[]) || [];
-
-      setHousehold(typedHousehold);
-      setHouseholdName(typedHousehold.name);
-      setKids(loadedKids);
-
-      if (loadedKids.length > 0) {
-        setTemplateKidId(loadedKids[0].id);
-      }
-
-      setLoading(false);
     }
 
-    loadOnboarding();
+    void loadOnboarding();
 
     return () => {
       cancelled = true;
@@ -333,6 +344,7 @@ export default function OnboardingPage() {
     }
 
     const updatedHousehold = data as Household;
+
     setHousehold(updatedHousehold);
     setHouseholdName(updatedHousehold.name);
     setStep(2);
@@ -371,6 +383,7 @@ export default function OnboardingPage() {
     }
 
     const newKid = data as Kid;
+
     setKids((previous) => [...previous, newKid]);
     setTemplateKidId((current) => current || newKid.id);
     setNewKidName("");
@@ -487,6 +500,9 @@ export default function OnboardingPage() {
             <p className="text-sm text-[var(--muted)]">
               Preparing your Mighty Helpers setup…
             </p>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              This should only take a moment.
+            </p>
           </section>
         </div>
       </main>
@@ -501,13 +517,16 @@ export default function OnboardingPage() {
             <h1 className="text-2xl font-semibold text-[var(--foreground)]">
               We couldn’t finish setting up your household
             </h1>
+
             <p className="mt-3 text-sm leading-6 text-[var(--danger-text)]">
               {error}
             </p>
+
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
               Please refresh and try again. If this continues, contact support
               and include code: HOUSEHOLD_SETUP_FAILED.
             </p>
+
             <div className="mt-6 flex flex-wrap gap-3">
               <button
                 type="button"
@@ -516,6 +535,7 @@ export default function OnboardingPage() {
               >
                 Try again
               </button>
+
               <Link
                 href="/login"
                 className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-sm font-semibold text-[var(--foreground)]"
@@ -551,10 +571,12 @@ export default function OnboardingPage() {
                   className="h-14 w-14 rounded-2xl object-cover shadow-sm sm:h-16 sm:w-16"
                   priority
                 />
+
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-strong)]">
                     Getting started
                   </p>
+
                   <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
                     Welcome to Mighty Helpers
                   </h1>
@@ -562,10 +584,30 @@ export default function OnboardingPage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <StepPill active={step === 1} complete={step > 1} number={1} label="Home" />
-                <StepPill active={step === 2} complete={step > 2} number={2} label="Helpers" />
-                <StepPill active={step === 3} complete={step > 3} number={3} label="Chores" />
-                <StepPill active={step === 4} complete={false} number={4} label="Trial" />
+                <StepPill
+                  active={step === 1}
+                  complete={step > 1}
+                  number={1}
+                  label="Home"
+                />
+                <StepPill
+                  active={step === 2}
+                  complete={step > 2}
+                  number={2}
+                  label="Helpers"
+                />
+                <StepPill
+                  active={step === 3}
+                  complete={step > 3}
+                  number={3}
+                  label="Chores"
+                />
+                <StepPill
+                  active={step === 4}
+                  complete={false}
+                  number={4}
+                  label="Trial"
+                />
               </div>
             </div>
 
@@ -576,6 +618,7 @@ export default function OnboardingPage() {
                     {error}
                   </div>
                 )}
+
                 {message && (
                   <div className="rounded-2xl border border-[var(--success-border)] bg-[var(--success-soft)] px-4 py-3 text-sm text-[var(--success-text)]">
                     {message}
@@ -589,11 +632,14 @@ export default function OnboardingPage() {
                 <p className="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)]">
                   Step 1 of 4
                 </p>
+
                 <h2 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
                   Let’s make your household feel like home.
                 </h2>
+
                 <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                  Start with a household name. You can change it any time from your settings.
+                  Start with a household name. You can change it any time from
+                  your settings.
                 </p>
 
                 <div className="mt-8 rounded-[1.75rem] border border-[var(--border-soft)] bg-white/76 p-5 shadow-sm backdrop-blur sm:p-6">
@@ -603,6 +649,7 @@ export default function OnboardingPage() {
                   >
                     Household name
                   </label>
+
                   <input
                     id="household-name"
                     value={householdName}
@@ -610,7 +657,7 @@ export default function OnboardingPage() {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        saveHouseholdName();
+                        void saveHouseholdName();
                       }
                     }}
                     placeholder="The Johnson Family"
@@ -620,7 +667,7 @@ export default function OnboardingPage() {
 
                 <button
                   type="button"
-                  onClick={saveHouseholdName}
+                  onClick={() => void saveHouseholdName()}
                   disabled={saving}
                   className="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -634,11 +681,14 @@ export default function OnboardingPage() {
                 <p className="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)]">
                   Step 2 of 4
                 </p>
+
                 <h2 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
                   Add your first helper.
                 </h2>
+
                 <p className="mt-4 max-w-2xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                  Add at least one child to begin. You can add siblings now or any time later.
+                  Add at least one child to begin. You can add siblings now or
+                  any time later.
                 </p>
 
                 <div className="mt-8 rounded-[1.75rem] border border-[var(--border-soft)] bg-white/76 p-5 shadow-sm backdrop-blur sm:p-6">
@@ -650,6 +700,7 @@ export default function OnboardingPage() {
                       >
                         Child’s name
                       </label>
+
                       <input
                         id="kid-name"
                         value={newKidName}
@@ -658,7 +709,9 @@ export default function OnboardingPage() {
                           setNewKidName(name);
 
                           if (!newKidInitial) {
-                            setNewKidInitial(name.trim().slice(0, 1).toUpperCase());
+                            setNewKidInitial(
+                              name.trim().slice(0, 1).toUpperCase()
+                            );
                           }
                         }}
                         placeholder="Maya"
@@ -673,6 +726,7 @@ export default function OnboardingPage() {
                       >
                         Initial
                       </label>
+
                       <input
                         id="kid-initial"
                         value={newKidInitial}
@@ -680,14 +734,16 @@ export default function OnboardingPage() {
                         onChange={(event) =>
                           setNewKidInitial(event.target.value.toUpperCase())
                         }
-                        placeholder={newKidName.trim().slice(0, 1).toUpperCase() || "M"}
+                        placeholder={
+                          newKidName.trim().slice(0, 1).toUpperCase() || "M"
+                        }
                         className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
                       />
                     </div>
 
                     <button
                       type="button"
-                      onClick={addKid}
+                      onClick={() => void addKid()}
                       disabled={saving}
                       className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-white px-5 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -703,6 +759,7 @@ export default function OnboardingPage() {
                       "bg-[rgba(225,241,255,0.92)] text-[rgb(44,96,143)]",
                       "bg-[rgba(230,246,234,0.92)] text-[rgb(56,110,66)]",
                     ];
+
                     const color = colors[index % colors.length];
 
                     return (
@@ -715,10 +772,12 @@ export default function OnboardingPage() {
                         >
                           {getKidAvatar(kid.name, kid.avatar)}
                         </div>
+
                         <div className="min-w-0">
                           <h3 className="truncate text-lg font-semibold text-[var(--foreground)]">
                             {kid.name}
                           </h3>
+
                           <p className="mt-1 text-sm text-[var(--muted)]">
                             Ready to become a Mighty Helper.
                           </p>
@@ -743,6 +802,7 @@ export default function OnboardingPage() {
                   >
                     Back
                   </button>
+
                   <button
                     type="button"
                     onClick={continueFromKids}
@@ -760,11 +820,15 @@ export default function OnboardingPage() {
                 <p className="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)]">
                   Step 3 of 4
                 </p>
+
                 <h2 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
                   Start with a few small wins.
                 </h2>
+
                 <p className="mt-4 max-w-2xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                  These optional starter chores make the app useful immediately. Pick any that fit your routine—you can edit or remove them later.
+                  These optional starter chores make the app useful immediately.
+                  Pick any that fit your routine—you can edit or remove them
+                  later.
                 </p>
 
                 <div className="mt-7 max-w-md">
@@ -774,6 +838,7 @@ export default function OnboardingPage() {
                   >
                     Add these chores for
                   </label>
+
                   <select
                     id="starter-chore-kid"
                     value={templateKidId}
@@ -817,6 +882,7 @@ export default function OnboardingPage() {
                               />
                             )}
                           </div>
+
                           <span
                             className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
                               selected
@@ -831,6 +897,7 @@ export default function OnboardingPage() {
                         <h3 className="mt-4 text-sm font-semibold text-[var(--foreground)]">
                           {template.title}
                         </h3>
+
                         <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                           {template.starValue}{" "}
                           {template.starValue === 1 ? "star" : "stars"} ·{" "}
@@ -858,9 +925,10 @@ export default function OnboardingPage() {
                   >
                     Back
                   </button>
+
                   <button
                     type="button"
-                    onClick={saveStarterChores}
+                    onClick={() => void saveStarterChores()}
                     disabled={saving}
                     className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -875,32 +943,40 @@ export default function OnboardingPage() {
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-[var(--accent-soft)] text-3xl shadow-sm">
                   ✨
                 </div>
+
                 <p className="mt-6 inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent-strong)]">
                   Step 4 of 4
                 </p>
+
                 <h2 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
                   Your household is ready to grow.
                 </h2>
+
                 <p className="mt-4 text-base leading-8 text-[var(--muted)] sm:text-lg">
-                  Start your 7-day free trial to unlock your Mighty Helpers dashboard.
-                  Stripe securely collects your payment details now; you will not
-                  be charged until the trial ends.
+                  Start your 7-day free trial to unlock your Mighty Helpers
+                  dashboard. Stripe securely collects your payment details now;
+                  you will not be charged until the trial ends.
                 </p>
 
                 <div className="mt-8 rounded-[1.75rem] border border-[var(--border-soft)] bg-white/78 p-5 text-left shadow-sm">
                   <p className="text-sm font-semibold text-[var(--foreground)]">
                     Your setup includes
                   </p>
+
                   <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--muted)]">
                     <li>
-                      • {kids.length} {kids.length === 1 ? "helper" : "helpers"} ready to go
+                      • {kids.length}{" "}
+                      {kids.length === 1 ? "helper" : "helpers"} ready to go
                     </li>
+
                     <li>
                       • {selectedCount} starter{" "}
                       {selectedCount === 1 ? "chore" : "chores"} selected
                     </li>
+
                     <li>
-                      • A clear place to approve tasks, award stars, and manage rewards
+                      • A clear place to track chores, award stars, and manage
+                      rewards
                     </li>
                   </ul>
                 </div>
@@ -914,13 +990,16 @@ export default function OnboardingPage() {
                   >
                     Back
                   </button>
+
                   <button
                     type="button"
-                    onClick={startTrial}
+                    onClick={() => void startTrial()}
                     disabled={saving || startingTrial}
                     className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {startingTrial ? "Opening secure checkout…" : "Start my 7-day free trial"}
+                    {startingTrial
+                      ? "Opening secure checkout…"
+                      : "Start my 7-day free trial"}
                   </button>
                 </div>
               </section>
