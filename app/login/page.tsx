@@ -38,7 +38,7 @@ export default function LoginPage() {
     // Send the user into a protected route. The proxy then decides whether
     // this household should continue onboarding, visit pricing, or open
     // the dashboard.
-    window.location.assign("/dashboard");
+    window.location.assign("/kids");
   }
 
   return (
