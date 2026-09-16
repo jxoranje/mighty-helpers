@@ -330,11 +330,6 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (!trimmedName) {
-      setError("Please give your household a name.");
-      return;
-    }
-
     setError("");
     setMessage("");
     setSaving(true);
