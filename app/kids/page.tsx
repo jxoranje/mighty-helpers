@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 import logo from "@/app/components/images/logo.png";
+import AppNav from "@/app/components/AppNav";
 
 type HouseholdMemberLookup = {
   household_id: string;
@@ -154,8 +155,10 @@ export default function KidsPage() {
     setSelectedKidId((current) => (current === kidId ? null : kidId));
   }
 
-  if (loading) {
-    return (
+if (loading) {
+  return (
+    <>
+      <AppNav />
       <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
         <div className="mx-auto max-w-5xl">
           <div className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)] backdrop-blur">
@@ -163,8 +166,9 @@ export default function KidsPage() {
           </div>
         </div>
       </main>
-    );
-  }
+    </>
+  );
+}
 
   return (
     <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">

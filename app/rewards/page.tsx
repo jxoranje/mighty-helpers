@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
+import AppNav from "@/app/components/AppNav";
 
 type HouseholdMemberLookup = { household_id: string };
 
@@ -285,17 +286,20 @@ export default function RewardsPage() {
     setMessage(reward.is_active ? "Reward deactivated." : "Reward activated.");
   }
 
-  if (loading) {
-    return (
+if (loading) {
+  return (
+    <>
+      <AppNav />
       <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
-        <div className="mx-auto max-w-6xl">
-          <section className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
-            <p className="text-sm text-[var(--muted)]">Loading rewards...</p>
-          </section>
+        <div className="mx-auto max-w-5xl">
+          <div className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)] backdrop-blur">
+            <p className="text-sm text-[var(--muted)]">Loading kids...</p>
+          </div>
         </div>
       </main>
-    );
-  }
+    </>
+  );
+}
 
   if (needsLogin) {
     return (
