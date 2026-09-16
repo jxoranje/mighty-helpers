@@ -316,7 +316,12 @@ export default function OnboardingPage() {
   }, [router, supabase]);
 
   async function saveHouseholdName() {
-    if (!household) return;
+    if (!household) {
+      setError(
+        "Your household is not available yet. Please refresh and try again."
+      );
+      return;
+    }
 
     const trimmedName = householdName.trim();
 
@@ -329,27 +334,42 @@ export default function OnboardingPage() {
     setMessage("");
     setSaving(true);
 
-    const { data, error: updateError } = await supabase
-      .from("households")
-      .update({ name: trimmedName } as never)
-      .eq("id", household.id)
-      .select("id, name, onboarding_completed_at")
-      .single();
+    try {
+      const { data, error: updateError } = await supabase
+        .from("households")
+        .update({ name: trimmedName } as never)
+        .eq("id", household.id)
+        .select("id, name, onboarding_completed_at")
+        .single();
 
-    setSaving(false);
+      if (updateError) {
+        throw updateError;
+      }
 
-    if (updateError) {
-      setError(updateError.message);
-      return;
+      if (!data) {
+        throw new Error(
+          "Your household name was not saved. Please refresh and try again."
+        );
+      }
+
+      const updatedHousehold = data as Household;
+
+      setHousehold(updatedHousehold);
+      setHouseholdName(updatedHousehold.name);
+      setStep(2);
+    } catch (err: unknown) {
+      console.error("Unable to save household name:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "We could not save your household name. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
-
-    const updatedHousehold = data as Household;
-
-    setHousehold(updatedHousehold);
-    setHouseholdName(updatedHousehold.name);
-    setStep(2);
   }
-
+  
   async function addKid() {
     if (!household) return;
 
