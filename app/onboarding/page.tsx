@@ -323,22 +323,53 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (!household) {
-      setError(
-        "Your setup is still loading. Please wait a moment, then try again."
-      );
-      return;
-    }
-
     setError("");
     setMessage("");
     setSaving(true);
 
     try {
+      /*
+       * Usually `household` is already loaded by loadOnboarding().
+       * This fallback makes Step 1 resilient if browser state was lost
+       * between the initial page load and the button click.
+       */
+      let householdId = household?.id;
+
+      if (!householdId) {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          throw new Error(
+            "Your session has expired. Please log in and try again."
+          );
+        }
+
+        const { data: membership, error: membershipError } = await supabase
+          .from("household_members")
+          .select("household_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (membershipError) {
+          throw membershipError;
+        }
+
+        if (!membership?.household_id) {
+          throw new Error(
+            "We could not find your household. Please refresh and try again."
+          );
+        }
+
+        householdId = membership.household_id;
+      }
+
       const { data, error: updateError } = await supabase
         .from("households")
         .update({ name: trimmedName } as never)
-        .eq("id", household.id)
+        .eq("id", householdId)
         .select("id, name, onboarding_completed_at")
         .single();
 
