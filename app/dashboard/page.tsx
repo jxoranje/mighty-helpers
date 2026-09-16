@@ -286,21 +286,6 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleSignOut() {
-    setPageError("");
-    setMessage("");
-
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      setPageError(error.message);
-      return;
-    }
-
-    router.replace("/login");
-    router.refresh();
-  }
-
   async function handleCancelSubscription() {
     const confirmed = window.confirm(
       "Are you sure you want to cancel your subscription? You'll keep access until the end of your current billing period, then it won't renew."
@@ -481,7 +466,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
+    <>
+      <AppNav />
+
+      <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <section className="relative overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(255,255,255,0.58)_36%,_transparent_68%)]" />
@@ -519,13 +507,6 @@ export default function DashboardPage() {
                   Go the the Kid Screen
                 </Link>
               </div>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-[var(--danger-border)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--danger-text)] shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--danger-border)] hover:bg-[var(--danger-soft)] active:translate-y-0"
-              >
-                Log out
-              </button>
             </div>
 
             {(pageError || message) && (
@@ -1075,6 +1056,7 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
