@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/app/components/images/logo.png";
+import AppNav from "@/app/components/AppNav";
 
 const faqs = [
   {
@@ -43,6 +44,8 @@ const faqs = [
 
 export default function HelpPage() {
   return (
+        <>
+          <AppNav />
     <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-5xl">
         <header className="flex items-center justify-between gap-4 py-2">
@@ -98,5 +101,6 @@ export default function HelpPage() {
         </footer>
       </div>
     </main>
+    </>
   );
 }

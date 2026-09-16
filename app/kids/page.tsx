@@ -170,7 +170,9 @@ if (loading) {
   );
 }
 
-  return (
+    return (
+    <>
+    <AppNav />
     <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <section className="relative mx-auto w-full max-w-4xl overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
@@ -317,5 +319,6 @@ if (loading) {
         </section>
       </div>
     </main>
+    </>
   );
 }

@@ -8,8 +8,8 @@ import { createBrowserClient } from "@/lib/supabase/client";
 import logo from "@/app/components/images/logo.png";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard" },
   { href: "/kids", label: "Select Helpers" },
+  { href: "/dashboard", label: "Parent Dashboard" },
   { href: "/chores", label: "Chores" },
   { href: "/rewards", label: "Rewards" },
 ];
@@ -41,7 +41,7 @@ export default function AppNav() {
     <header className="sticky top-0 z-30 border-b border-[var(--border-soft)] bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <Link
-          href="/dashboard"
+          href="/kids"
           className="flex shrink-0 items-center gap-2"
           aria-label="Go to Mighty Helpers dashboard"
         >
@@ -64,10 +64,7 @@ export default function AppNav() {
           aria-label="Main navigation"
         >
           {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname?.startsWith(item.href);
+            const isActive = pathname?.startsWith(item.href);
 
             return (
               <Link
