@@ -213,12 +213,12 @@ if (loading) {
 
             <div className="pt-8 sm:pt-10">
               <h1 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-6xl">
-                Select Helper
+                Whose Turn Is It to Help? 
               </h1>
 
               <p className="mt-4 max-w-2xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                Ready to help? Tap your name below, then head to your chores to
-                start earning stars.
+                Ready to help? Click on your name below, then head to your chores to
+                start earning stars, or see your profile and how you're doing.
               </p>
             </div>
 
@@ -281,7 +281,7 @@ if (loading) {
                             </div>
 
                             <p className={`mt-5 text-sm leading-6 sm:text-base ${style.softText}`}>
-                              Tap to select {kid.name.split(" ")[0]}.
+                              Tap to select {kid.name.split(" ")[0]}! 
                             </p>
                           </div>
                         </div>
@@ -293,7 +293,7 @@ if (loading) {
                 {selectedKid && (
                   <div className="mt-8 rounded-[1.75rem] border border-[var(--star-border)] bg-[linear-gradient(135deg,_#fff7d6_0%,_#ffe7b8_100%)] p-6 shadow-[0_14px_30px_rgba(138,90,0,0.12)]">
                     <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--star-text)]">
-                      Ready to go, {selectedKid.name}?
+                      Ready to help, {selectedKid.name}?
                     </p>
 
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -301,14 +301,14 @@ if (loading) {
                         href={`/kids/${selectedKid.id}/chores`}
                         className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)]"
                       >
-                        Go to the Chores page
+                        Go to the Chores Page
                       </Link>
 
                       <Link
                         href={`/kids/${selectedKid.id}`}
                         className="inline-flex min-h-12 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)]"
                       >
-                        View profile
+                        View Your Profile
                       </Link>
                     </div>
                   </div>

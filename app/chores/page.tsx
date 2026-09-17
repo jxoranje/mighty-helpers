@@ -380,7 +380,7 @@ function ChoreForm({
       min="0"
       value={starValue}
       onChange={(event) => onStarValueChange(event.target.value)}
-      className="max-w-[80px]"
+      className="max-w-[140px]"
     />
 
     <span className="text-sm font-semibold text-[var(--star-text)]">
