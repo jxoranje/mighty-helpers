@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 import AppNav from "@/app/components/AppNav";
 
-type HouseholdMemberLookup = { household_id: string };
+type HouseholdMemberLookup = {
+  household_id: string;
+};
 
 type Reward = {
   id: string;
@@ -19,17 +26,205 @@ type Reward = {
 };
 
 type RewardInsert = Omit<Reward, "id">;
+
 type RewardUpdate = Pick<
   Reward,
   "title" | "description" | "cost_stars" | "is_mystery"
 >;
 
-const rewardSelect =
+type NoticeType = "success" | "error";
+
+const REWARD_SELECT =
   "id, household_id, title, description, cost_stars, is_mystery, is_active";
+
+function Notice({
+  type,
+  children,
+}: {
+  type: NoticeType;
+  children: React.ReactNode;
+}) {
+  const classes =
+    type === "success"
+      ? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]"
+      : "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-text)]";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${classes}`}>
+      {children}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  number,
+  tone,
+}: {
+  label: string;
+  number: number;
+  tone: "accent" | "star" | "mystery";
+}) {
+  const tones = {
+    accent:
+      "border-[var(--border-soft)] bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+    star: "border-[var(--star-border)] bg-[var(--star-soft)] text-[var(--star-text)]",
+    mystery:
+      "border-[rgba(164,140,255,0.24)] bg-[rgba(164,140,255,0.12)] text-[rgb(102,75,170)]",
+  };
+
+  return (
+    <article className={`rounded-[1.5rem] border p-4 ${tones[tone]}`}>
+      <p className="text-2xl font-semibold">{number}</p>
+      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] opacity-80">
+        {label}
+      </p>
+    </article>
+  );
+}
+
+type RewardFormProps = {
+  mode: "create" | "edit";
+  title: string;
+  descriptionValue: string;
+  costStars: string;
+  isMystery: boolean;
+  submitLabel: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onTitleChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onCostStarsChange: (value: string) => void;
+  onMysteryChange: (value: boolean) => void;
+  onCancel?: () => void;
+  titleInputRef?: React.RefObject<HTMLInputElement | null>;
+};
+
+function RewardForm({
+  mode,
+  title,
+  descriptionValue,
+  costStars,
+  isMystery,
+  submitLabel,
+  onSubmit,
+  onTitleChange,
+  onDescriptionChange,
+  onCostStarsChange,
+  onMysteryChange,
+  onCancel,
+  titleInputRef,
+}: RewardFormProps) {
+  const isEditing = mode === "edit";
+
+  return (
+    <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <div>
+        <label
+          htmlFor="reward-title"
+          className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+        >
+          Reward name
+        </label>
+
+        <input
+          ref={titleInputRef}
+          id="reward-title"
+          type="text"
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+          placeholder="Ice cream trip"
+          className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="reward-description"
+          className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+        >
+          Description <span className="font-normal text-[var(--muted)]">(optional)</span>
+        </label>
+
+        <textarea
+          id="reward-description"
+          value={descriptionValue}
+          onChange={(event) => onDescriptionChange(event.target.value)}
+          placeholder="A fun weekend treat after a great week."
+          rows={3}
+          className="w-full resize-none rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="reward-cost"
+          className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+        >
+          Cost in stars
+        </label>
+
+        <div className="relative">
+          <input
+            id="reward-cost"
+            type="number"
+            min="0"
+            value={costStars}
+            onChange={(event) => onCostStarsChange(event.target.value)}
+            className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 pr-16 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+          />
+
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[var(--star-text)]">
+            stars
+          </span>
+        </div>
+      </div>
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--border-soft)] bg-white/80 p-4 transition-colors hover:bg-white">
+        <input
+          type="checkbox"
+          checked={isMystery}
+          onChange={(event) => onMysteryChange(event.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-[var(--border-strong)] accent-[var(--accent)]"
+        />
+
+        <span>
+          <span className="block text-sm font-semibold text-[var(--foreground)]">
+            Make this a mystery reward
+          </span>
+
+          <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
+            Helpers can see that a reward exists, but not what it is until you
+            choose to reveal it.
+          </span>
+        </span>
+      </label>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button
+          type="submit"
+          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,118,110,0.24)] transition-colors hover:bg-[var(--accent-hover)]"
+        >
+          {submitLabel}
+        </button>
+
+        {isEditing && onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)]"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
 
 export default function RewardsPage() {
   const supabase = useMemo(() => createBrowserClient(), []);
-  const router = useRouter();
+  const addRewardPanelRef = useRef<HTMLElement | null>(null);
+  const rewardTitleInputRef = useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [needsLogin, setNeedsLogin] = useState(false);
@@ -52,62 +247,91 @@ export default function RewardsPage() {
     string | null
   >(null);
 
+  const [savingReward, setSavingReward] = useState(false);
+  const [updatingRewardId, setUpdatingRewardId] = useState<string | null>(
+    null
+  );
+  const [deletingRewardId, setDeletingRewardId] = useState<string | null>(
+    null
+  );
+
   useEffect(() => {
+    let cancelled = false;
+
     async function loadRewards() {
       setLoading(true);
       setNeedsLogin(false);
       setError("");
       setMessage("");
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        setNeedsLogin(true);
-        setLoading(false);
-        return;
+        if (cancelled) return;
+
+        if (userError || !user) {
+          setNeedsLogin(true);
+          return;
+        }
+
+        const { data: memberRow, error: memberError } = await supabase
+          .from("household_members")
+          .select("household_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (memberError) {
+          throw memberError;
+        }
+
+        const household = memberRow as HouseholdMemberLookup | null;
+
+        if (!household?.household_id) {
+          throw new Error("No household found for this user.");
+        }
+
+        setHouseholdId(household.household_id);
+
+        const { data, error: rewardsError } = await supabase
+          .from("rewards")
+          .select(REWARD_SELECT)
+          .eq("household_id", household.household_id)
+          .order("created_at", { ascending: true });
+
+        if (cancelled) return;
+
+        if (rewardsError) {
+          throw rewardsError;
+        }
+
+        setRewards((data as Reward[]) || []);
+      } catch (err: unknown) {
+        console.error("Unable to load rewards:", err);
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load your household rewards."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-
-      const { data: memberRow, error: memberError } = await supabase
-        .from("household_members")
-        .select("household_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (memberError) {
-        setError(memberError.message);
-        setLoading(false);
-        return;
-      }
-
-      const household = memberRow as HouseholdMemberLookup | null;
-      if (!household?.household_id) {
-        setError("No household found for this user.");
-        setLoading(false);
-        return;
-      }
-
-      setHouseholdId(household.household_id);
-
-      const { data, error: rewardsError } = await supabase
-        .from("rewards")
-        .select(rewardSelect)
-        .eq("household_id", household.household_id)
-        .order("created_at", { ascending: true });
-
-      if (rewardsError) {
-        setError(rewardsError.message);
-        setLoading(false);
-        return;
-      }
-
-      setRewards((data as Reward[]) || []);
-      setLoading(false);
     }
 
-    loadRewards();
+    void loadRewards();
+
+    return () => {
+      cancelled = true;
+    };
   }, [supabase]);
 
   function resetNewRewardForm() {
@@ -123,6 +347,7 @@ export default function RewardsPage() {
     setEditingDescription("");
     setEditingCostStars("10");
     setEditingIsMystery(false);
+    setRewardPendingDeleteId(null);
   }
 
   function getValidatedReward(titleValue: string, starsValue: string) {
@@ -130,7 +355,7 @@ export default function RewardsPage() {
     const costStars = Number.parseInt(starsValue, 10);
 
     if (!title) {
-      setError("Please enter a reward title.");
+      setError("Please enter a reward name.");
       return null;
     }
 
@@ -142,42 +367,69 @@ export default function RewardsPage() {
     return { title, costStars };
   }
 
+  function focusRewardForm() {
+    setError("");
+    setMessage("");
+    cancelEditingReward();
+
+    window.setTimeout(() => {
+      addRewardPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      rewardTitleInputRef.current?.focus();
+    }, 0);
+  }
+
   async function handleCreateReward(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setMessage("");
 
     if (!householdId) {
-      setError("Household not loaded yet.");
+      setError("Your household has not loaded yet. Please refresh and try again.");
       return;
     }
 
     const values = getValidatedReward(newTitle, newCostStars);
+
     if (!values) return;
 
-    const payload: RewardInsert = {
-      household_id: householdId,
-      title: values.title,
-      description: newDescription.trim() || null,
-      cost_stars: values.costStars,
-      is_mystery: newIsMystery,
-      is_active: true,
-    };
+    setSavingReward(true);
 
-    const { data, error: insertError } = await supabase
-      .from("rewards")
-      .insert(payload as never)
-      .select(rewardSelect)
-      .single();
+    try {
+      const payload: RewardInsert = {
+        household_id: householdId,
+        title: values.title,
+        description: newDescription.trim() || null,
+        cost_stars: values.costStars,
+        is_mystery: newIsMystery,
+        is_active: true,
+      };
 
-    if (insertError) {
-      setError(insertError.message);
-      return;
+      const { data, error: insertError } = await supabase
+        .from("rewards")
+        .insert(payload as never)
+        .select(REWARD_SELECT)
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      const newReward = data as Reward;
+
+      setRewards((previous) => [...previous, newReward]);
+      resetNewRewardForm();
+      setMessage(`${newReward.title} was added.`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to add this reward."
+      );
+    } finally {
+      setSavingReward(false);
     }
-
-    setRewards((previous) => [...previous, data as Reward]);
-    resetNewRewardForm();
-    setMessage("Reward added.");
   }
 
   function startEditingReward(reward: Reward) {
@@ -189,6 +441,15 @@ export default function RewardsPage() {
     setEditingIsMystery(reward.is_mystery);
     setError("");
     setMessage("");
+
+    window.setTimeout(() => {
+      addRewardPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      rewardTitleInputRef.current?.focus();
+    }, 0);
   }
 
   async function handleUpdateReward(event: FormEvent<HTMLFormElement>) {
@@ -202,35 +463,48 @@ export default function RewardsPage() {
     }
 
     const values = getValidatedReward(editingTitle, editingCostStars);
+
     if (!values) return;
 
-    const payload: RewardUpdate = {
-      title: values.title,
-      description: editingDescription.trim() || null,
-      cost_stars: values.costStars,
-      is_mystery: editingIsMystery,
-    };
+    setSavingReward(true);
 
-    const { data, error: updateError } = await supabase
-      .from("rewards")
-      .update(payload as never)
-      .eq("id", editingRewardId)
-      .eq("household_id", householdId)
-      .select(rewardSelect)
-      .single();
+    try {
+      const payload: RewardUpdate = {
+        title: values.title,
+        description: editingDescription.trim() || null,
+        cost_stars: values.costStars,
+        is_mystery: editingIsMystery,
+      };
 
-    if (updateError) {
-      setError(updateError.message);
-      return;
+      const { data, error: updateError } = await supabase
+        .from("rewards")
+        .update(payload as never)
+        .eq("id", editingRewardId)
+        .eq("household_id", householdId)
+        .select(REWARD_SELECT)
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      const updatedReward = data as Reward;
+
+      setRewards((previous) =>
+        previous.map((reward) =>
+          reward.id === editingRewardId ? updatedReward : reward
+        )
+      );
+
+      cancelEditingReward();
+      setMessage(`${updatedReward.title} was updated.`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to update this reward."
+      );
+    } finally {
+      setSavingReward(false);
     }
-
-    setRewards((previous) =>
-      previous.map((reward) =>
-        reward.id === editingRewardId ? (data as Reward) : reward
-      )
-    );
-    cancelEditingReward();
-    setMessage("Reward updated.");
   }
 
   async function handleDeleteReward(id: string) {
@@ -238,24 +512,38 @@ export default function RewardsPage() {
     setMessage("");
 
     if (!householdId) {
-      setError("Household not loaded yet.");
+      setError("Your household has not loaded yet. Please refresh and try again.");
       return;
     }
 
-    const { error: deleteError } = await supabase
-      .from("rewards")
-      .delete()
-      .eq("id", id)
-      .eq("household_id", householdId);
+    setDeletingRewardId(id);
 
-    if (deleteError) {
-      setError(deleteError.message);
-      return;
+    try {
+      const { error: deleteError } = await supabase
+        .from("rewards")
+        .delete()
+        .eq("id", id)
+        .eq("household_id", householdId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      setRewards((previous) => previous.filter((reward) => reward.id !== id));
+      setRewardPendingDeleteId(null);
+
+      if (editingRewardId === id) {
+        cancelEditingReward();
+      }
+
+      setMessage("Reward deleted.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to delete this reward."
+      );
+    } finally {
+      setDeletingRewardId(null);
     }
-
-    setRewards((previous) => previous.filter((reward) => reward.id !== id));
-    setRewardPendingDeleteId(null);
-    setMessage("Reward deleted.");
   }
 
   async function toggleRewardActive(reward: Reward) {
@@ -263,61 +551,97 @@ export default function RewardsPage() {
     setMessage("");
 
     if (!householdId) {
-      setError("Household not loaded yet.");
+      setError("Your household has not loaded yet. Please refresh and try again.");
       return;
     }
 
-    const { data, error: updateError } = await supabase
-      .from("rewards")
-      .update({ is_active: !reward.is_active } as never)
-      .eq("id", reward.id)
-      .eq("household_id", householdId)
-      .select(rewardSelect)
-      .single();
+    setUpdatingRewardId(reward.id);
 
-    if (updateError) {
-      setError(updateError.message);
-      return;
+    try {
+      const { data, error: updateError } = await supabase
+        .from("rewards")
+        .update({ is_active: !reward.is_active } as never)
+        .eq("id", reward.id)
+        .eq("household_id", householdId)
+        .select(REWARD_SELECT)
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      const updatedReward = data as Reward;
+
+      setRewards((previous) =>
+        previous.map((item) =>
+          item.id === reward.id ? updatedReward : item
+        )
+      );
+
+      setMessage(
+        reward.is_active
+          ? `${reward.title} was made inactive.`
+          : `${reward.title} is active again.`
+      );
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to update this reward."
+      );
+    } finally {
+      setUpdatingRewardId(null);
     }
-
-    setRewards((previous) =>
-      previous.map((item) => (item.id === reward.id ? (data as Reward) : item))
-    );
-    setMessage(reward.is_active ? "Reward deactivated." : "Reward activated.");
   }
 
-if (loading) {
-  return (
-    <>
-      <AppNav />
-      <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)] backdrop-blur">
-            <p className="text-sm text-[var(--muted)]">Loading kids...</p>
+  if (loading) {
+    return (
+      <>
+        <AppNav />
+
+        <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
+          <div className="mx-auto max-w-6xl">
+            <section className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
+              <p className="text-sm text-[var(--muted)]">
+                Loading household rewards…
+              </p>
+            </section>
           </div>
-        </div>
-      </main>
-    </>
-  );
-}
+        </main>
+      </>
+    );
+  }
 
   if (needsLogin) {
     return (
-    <>
-      <AppNav />
-      <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
-        <div className="mx-auto max-w-xl">
-          <section className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 text-center shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
-            <h1 className="font-[family:var(--font-display)] text-3xl text-[var(--foreground)]">Log in required</h1>
-            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">Please log in to view and manage your household rewards.</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Link href="/login" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90">
-                Log in to your household
-              </Link>
-            </div>
-          </section>
-        </div>
-      </main>
+      <>
+        <AppNav />
+
+        <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
+          <div className="mx-auto max-w-xl">
+            <section className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 text-center shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+                Parent access
+              </p>
+
+              <h1 className="mt-3 font-[family:var(--font-display)] text-3xl text-[var(--foreground)]">
+                Log in to manage rewards
+              </h1>
+
+              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                Sign in to create rewards, set star costs, and manage your
+                household’s reward menu.
+              </p>
+
+              <div className="mt-6">
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
+                >
+                  Log in to your household
+                </Link>
+              </div>
+            </section>
+          </div>
+        </main>
       </>
     );
   }
@@ -326,184 +650,310 @@ if (loading) {
   const mysteryCount = rewards.filter((reward) => reward.is_mystery).length;
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-6xl">
-        <section className="relative mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.95),_rgba(255,255,255,0.55)_35%,_transparent_65%)]" />
-          <div className="relative p-5 sm:p-8 md:p-10">
-<div className="flex justify-end">
-  <button
-    type="button"
-    onClick={() => router.push("/dashboard")}
-    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-white"
-  >
-    Back to Parent Dashboard
-  </button>
-</div>
+    <>
+      <AppNav />
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-              <div>
-                <div className="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] shadow-sm">Household rewards</div>
-                <h1 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">Rewards</h1>
-                <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">Create, update, hide, and organize the rewards your household can earn with stars.</p>
+      <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-6xl">
+          <section className="relative overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(255,255,255,0.58)_36%,_transparent_68%)]" />
+            <div className="pointer-events-none absolute -left-10 top-20 h-40 w-40 rounded-full bg-[var(--blob-yellow)] blur-3xl opacity-55" />
+            <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-[var(--blob-pink)] blur-3xl opacity-45" />
+            <div className="pointer-events-none absolute bottom-0 right-16 h-40 w-40 rounded-full bg-[var(--blob-blue)] blur-3xl opacity-45" />
+
+            <div className="relative p-5 sm:p-8 md:p-10">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
+                    Parent tools
+                  </p>
+
+                  <h1 className="mt-3 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
+                    Rewards
+                  </h1>
+
+                  <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">
+                    Create rewards your helpers care about, set the star cost,
+                    and keep their choices motivating and clear.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={focusRewardForm}
+                  className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)]"
+                >
+                  + Add reward
+                </button>
               </div>
 
-              <div className="rounded-[1.75rem] border border-[rgba(255,211,112,0.42)] bg-[linear-gradient(180deg,#fff4cc_0%,#ffe7a8_100%)] p-5 shadow-[0_14px_32px_rgba(196,154,67,0.18)]">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8b5e00]">Quick snapshot</p>
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <SnapshotCard number={rewards.length} label="Total" />
-                  <SnapshotCard number={activeCount} label="Active" />
-                  <SnapshotCard number={mysteryCount} label="Mystery" />
+              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                <StatCard label="Total rewards" number={rewards.length} tone="accent" />
+                <StatCard label="Active rewards" number={activeCount} tone="star" />
+                <StatCard label="Mystery rewards" number={mysteryCount} tone="mystery" />
+              </div>
+
+              {(message || error) && (
+                <div className="mt-6 space-y-3">
+                  {message && <Notice type="success">{message}</Notice>}
+                  {error && <Notice type="error">{error}</Notice>}
                 </div>
+              )}
+
+              <div className="mt-10 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+                <section>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+                        Reward library
+                      </p>
+
+                      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+                        Current rewards
+                      </h2>
+
+                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                        These are the rewards your helpers can save up for with
+                        stars.
+                      </p>
+                    </div>
+
+                    <span className="inline-flex w-fit rounded-full border border-[var(--border-soft)] bg-white/80 px-4 py-2 text-xs font-semibold text-[var(--muted-strong)]">
+                      {rewards.length}{" "}
+                      {rewards.length === 1 ? "reward" : "rewards"}
+                    </span>
+                  </div>
+
+                  {rewards.length === 0 ? (
+                    <div className="mt-5 rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--panel-muted)] p-8 text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--star-soft)] text-3xl">
+                        ★
+                      </div>
+
+                      <h3 className="mt-4 text-lg font-semibold text-[var(--foreground)]">
+                        Create your first reward
+                      </h3>
+
+                      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">
+                        Start with something your family enjoys—an outing, a
+                        special treat, extra screen time, or a surprise.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={focusRewardForm}
+                        className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
+                      >
+                        Add a reward
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      {rewards.map((reward, index) => {
+                        const isPendingDelete =
+                          rewardPendingDeleteId === reward.id;
+                        const isUpdating = updatingRewardId === reward.id;
+                        const isDeleting = deletingRewardId === reward.id;
+
+                        const cardTone =
+                          index % 3 === 0
+                            ? "border-[rgba(196,168,129,0.22)] bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(255,248,238,0.96))]"
+                            : index % 3 === 1
+                              ? "border-[rgba(119,154,196,0.20)] bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(244,250,255,0.96))]"
+                              : "border-[rgba(126,171,139,0.20)] bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(245,252,246,0.96))]";
+
+                        return (
+                          <article
+                            key={reward.id}
+                            className={`rounded-[1.75rem] border p-5 shadow-sm transition-opacity ${
+                              reward.is_active
+                                ? cardTone
+                                : "border-[var(--border-soft)] bg-[var(--panel-muted)] opacity-75"
+                            }`}
+                          >
+                            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-xl font-semibold text-[var(--foreground)]">
+                                    {reward.is_mystery ? "Mystery reward" : reward.title}
+                                  </h3>
+
+                                  {reward.is_mystery && (
+                                    <span className="rounded-full border border-[rgba(164,140,255,0.24)] bg-[rgba(164,140,255,0.12)] px-2.5 py-1 text-xs font-semibold text-[rgb(102,75,170)]">
+                                      Mystery
+                                    </span>
+                                  )}
+
+                                  <span
+                                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                      reward.is_active
+                                        ? "bg-[var(--success-soft)] text-[var(--success-text)]"
+                                        : "bg-[var(--panel-soft)] text-[var(--muted-strong)]"
+                                    }`}
+                                  >
+                                    {reward.is_active ? "Active" : "Inactive"}
+                                  </span>
+                                </div>
+
+                                {reward.is_mystery && (
+                                  <p className="mt-2 text-sm font-medium text-[var(--muted-strong)]">
+                                    Keep the details as a surprise until you
+                                    decide to reveal it.
+                                  </p>
+                                )}
+
+                                {reward.description && (
+                                  <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">
+                                    {reward.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex shrink-0 items-center gap-2 rounded-2xl border border-[var(--star-border)] bg-[var(--star-soft)] px-4 py-3">
+                                <span className="text-xl">★</span>
+
+                                <div>
+                                  <p className="text-lg font-bold leading-none text-[var(--star-text)]">
+                                    {reward.cost_stars}
+                                  </p>
+
+                                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--star-text)]">
+                                    stars
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {isPendingDelete ? (
+                              <div className="mt-5 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-4">
+                                <p className="text-sm font-medium text-[var(--danger-text)]">
+                                  Delete “{reward.title}” permanently?
+                                </p>
+
+                                <p className="mt-1 text-sm leading-6 text-[var(--danger-text)]">
+                                  This cannot be undone.
+                                </p>
+
+                                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleDeleteReward(reward.id)}
+                                    disabled={isDeleting}
+                                    className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--danger-button)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--danger-button-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {isDeleting ? "Deleting…" : "Yes, delete reward"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setRewardPendingDeleteId(null)}
+                                    disabled={isDeleting}
+                                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Keep reward
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-5 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditingReward(reward)}
+                                  disabled={isUpdating}
+                                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Edit reward
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => void toggleRewardActive(reward)}
+                                  disabled={isUpdating}
+                                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isUpdating
+                                    ? "Saving…"
+                                    : reward.is_active
+                                      ? "Make inactive"
+                                      : "Make active"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    cancelEditingReward();
+                                    setRewardPendingDeleteId(reward.id);
+                                  }}
+                                  disabled={isUpdating}
+                                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--danger-border)] bg-white px-4 py-2 text-sm font-medium text-[var(--danger-text)] transition-colors hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section
+                  ref={addRewardPanelRef}
+                  className="h-fit rounded-[1.75rem] border border-[var(--border-soft)] bg-white/84 p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)] backdrop-blur sm:p-6"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+                    {editingRewardId ? "Edit mode" : "Create mode"}
+                  </p>
+
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+                    {editingRewardId ? "Edit reward" : "Add a reward"}
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                    {editingRewardId
+                      ? "Update the details below, then save your changes."
+                      : "Create something motivating for helpers to save their stars toward."}
+                  </p>
+
+                  {editingRewardId ? (
+                    <RewardForm
+                      mode="edit"
+                      title={editingTitle}
+                      descriptionValue={editingDescription}
+                      costStars={editingCostStars}
+                      isMystery={editingIsMystery}
+                      submitLabel={savingReward ? "Saving…" : "Save changes"}
+                      onSubmit={handleUpdateReward}
+                      onTitleChange={setEditingTitle}
+                      onDescriptionChange={setEditingDescription}
+                      onCostStarsChange={setEditingCostStars}
+                      onMysteryChange={setEditingIsMystery}
+                      onCancel={cancelEditingReward}
+                      titleInputRef={rewardTitleInputRef}
+                    />
+                  ) : (
+                    <RewardForm
+                      mode="create"
+                      title={newTitle}
+                      descriptionValue={newDescription}
+                      costStars={newCostStars}
+                      isMystery={newIsMystery}
+                      submitLabel={savingReward ? "Adding reward…" : "Add reward"}
+                      onSubmit={handleCreateReward}
+                      onTitleChange={setNewTitle}
+                      onDescriptionChange={setNewDescription}
+                      onCostStarsChange={setNewCostStars}
+                      onMysteryChange={setNewIsMystery}
+                      titleInputRef={rewardTitleInputRef}
+                    />
+                  )}
+                </section>
               </div>
             </div>
-
-            {message && <Notice type="success">{message}</Notice>}
-            {error && <Notice type="error">{error}</Notice>}
-
-            <section className="mt-10">
-              <h2 className="text-lg font-semibold text-[var(--foreground)]">Current rewards</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">Manage what kids can save up for.</p>
-
-              {rewards.length === 0 ? (
-                <div className="mt-4 rounded-[1.75rem] border border-[var(--border-soft)] bg-white/70 px-5 py-6 text-sm text-[var(--muted)] shadow-sm">No rewards yet. Add your first reward below.</div>
-              ) : (
-                <ul className="mt-4 space-y-4">
-                  {rewards.map((reward) => (
-                    <li key={reward.id} className={`rounded-[1.75rem] border p-5 shadow-sm ${reward.is_active ? "border-[var(--border-soft)] bg-white/75" : "border-[rgba(63,89,131,0.10)] bg-[rgba(246,243,238,0.8)] opacity-90"}`}>
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-lg font-semibold text-[var(--foreground)]">{reward.title}</p>
-                            <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--accent-strong)]">{reward.cost_stars} stars</span>
-                            <span className="rounded-full bg-white/80 px-2.5 py-1 text-xs text-[var(--muted)]">{reward.is_mystery ? "Mystery" : "Visible"}</span>
-                            <span className={`rounded-full px-2.5 py-1 text-xs ${reward.is_active ? "bg-[rgba(220,244,227,0.9)] text-[rgb(52,110,73)]" : "bg-[rgba(238,238,238,0.9)] text-[rgb(104,104,104)]"}`}>{reward.is_active ? "Active" : "Inactive"}</span>
-                          </div>
-                          {reward.description && <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">{reward.description}</p>}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          {rewardPendingDeleteId === reward.id ? (
-                            <div className="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-[rgba(190,84,84,0.18)] bg-[rgba(255,240,240,0.92)] px-3 py-3">
-                              <span className="text-xs text-[rgb(140,62,62)]">Delete this reward?</span>
-                              <button type="button" onClick={() => handleDeleteReward(reward.id)} className="rounded-full bg-[rgb(193,71,71)] px-3 py-2 text-xs font-medium text-white hover:bg-[rgb(170,56,56)]">Delete</button>
-                              <button type="button" onClick={() => setRewardPendingDeleteId(null)} className="rounded-full border border-[var(--border-strong)] bg-white px-3 py-2 text-xs font-medium text-[var(--foreground)] hover:bg-[rgba(255,255,255,0.85)]">Cancel</button>
-                            </div>
-                          ) : (
-                            <>
-                              <button type="button" onClick={() => startEditingReward(reward)} className="rounded-full border border-[var(--border-strong)] bg-white/85 px-3.5 py-2 text-xs font-medium text-[var(--foreground)] shadow-sm hover:bg-white">Edit</button>
-                              <button type="button" onClick={() => toggleRewardActive(reward)} className="rounded-full border border-[var(--border-strong)] bg-white/85 px-3.5 py-2 text-xs font-medium text-[var(--foreground)] shadow-sm hover:bg-white">{reward.is_active ? "Deactivate" : "Activate"}</button>
-                              <button type="button" onClick={() => { cancelEditingReward(); setRewardPendingDeleteId(reward.id); }} className="rounded-full border border-[rgba(190,84,84,0.28)] bg-[rgba(255,240,240,0.92)] px-3.5 py-2 text-xs font-medium text-[rgb(140,62,62)] hover:bg-[rgba(255,230,230,1)]">Delete</button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            {!editingRewardId ? (
-              <RewardForm
-                heading="Add a reward"
-                description="Add something fun for kids to save up for."
-                title={newTitle}
-                descriptionValue={newDescription}
-                costStars={newCostStars}
-                isMystery={newIsMystery}
-                submitLabel="Add reward"
-                onSubmit={handleCreateReward}
-                onTitleChange={setNewTitle}
-                onDescriptionChange={setNewDescription}
-                onCostStarsChange={setNewCostStars}
-                onMysteryChange={setNewIsMystery}
-              />
-            ) : (
-              <RewardForm
-                heading="Edit reward"
-                description="Update the reward details below, or cancel to return to add mode."
-                title={editingTitle}
-                descriptionValue={editingDescription}
-                costStars={editingCostStars}
-                isMystery={editingIsMystery}
-                submitLabel="Save changes"
-                onSubmit={handleUpdateReward}
-                onTitleChange={setEditingTitle}
-                onDescriptionChange={setEditingDescription}
-                onCostStarsChange={setEditingCostStars}
-                onMysteryChange={setEditingIsMystery}
-                onCancel={cancelEditingReward}
-              />
-            )}
-          </div>
-        </section>
-      </div>
-    </main>
-  );
-}
-
-function SnapshotCard({ number, label }: { number: number; label: string }) {
-  return (
-    <div className="rounded-[1.25rem] bg-white/65 p-3">
-      <p className="text-2xl font-semibold text-[#5a3d00]">{number}</p>
-      <p className="mt-1 text-xs text-[#8b5e00]">{label}</p>
-    </div>
-  );
-}
-
-function Notice({ type, children }: { type: "success" | "error"; children: React.ReactNode }) {
-  const classes = type === "success"
-    ? "border-[rgba(91,154,111,0.18)] bg-[rgba(240,252,242,0.92)] text-[rgb(58,105,72)]"
-    : "border-[rgba(190,84,84,0.18)] bg-[rgba(255,240,240,0.92)] text-[rgb(140,62,62)]";
-  return <div className={`mt-6 rounded-[1.25rem] border px-4 py-3 text-sm shadow-sm ${classes}`}>{children}</div>;
-}
-
-type RewardFormProps = {
-  heading: string;
-  description: string;
-  title: string;
-  descriptionValue: string;
-  costStars: string;
-  isMystery: boolean;
-  submitLabel: string;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onTitleChange: (value: string) => void;
-  onDescriptionChange: (value: string) => void;
-  onCostStarsChange: (value: string) => void;
-  onMysteryChange: (value: boolean) => void;
-  onCancel?: () => void;
-};
-
-function RewardForm({ heading, description, title, descriptionValue, costStars, isMystery, submitLabel, onSubmit, onTitleChange, onDescriptionChange, onCostStarsChange, onMysteryChange, onCancel }: RewardFormProps) {
-  return (
-    <section className="mt-10 border-t border-[var(--border-soft)] pt-8">
-      <h2 className="text-lg font-semibold text-[var(--foreground)]">{heading}</h2>
-      <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
-      <form onSubmit={onSubmit} className="mt-5 space-y-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">Title</label>
-          <input type="text" value={title} onChange={(event) => onTitleChange(event.target.value)} placeholder="Ice cream trip" className="w-full rounded-[1rem] border border-[var(--border-strong)] bg-white/80 px-4 py-3 text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]/70 focus:border-[var(--accent-strong)]" />
+          </section>
         </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">Description (optional)</label>
-          <input type="text" value={descriptionValue} onChange={(event) => onDescriptionChange(event.target.value)} placeholder="A fun weekend treat" className="w-full rounded-[1rem] border border-[var(--border-strong)] bg-white/80 px-4 py-3 text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]/70 focus:border-[var(--accent-strong)]" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-[0.55fr_1fr] md:items-end">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]">Cost in stars</label>
-            <input type="number" min="0" value={costStars} onChange={(event) => onCostStarsChange(event.target.value)} className="w-full rounded-[1rem] border border-[var(--border-strong)] bg-white/80 px-4 py-3 text-[var(--foreground)] outline-none focus:border-[var(--accent-strong)]" />
-          </div>
-          <label className="inline-flex min-h-12 items-center gap-3 rounded-[1rem] border border-[var(--border-soft)] bg-white/70 px-4 py-3 text-sm text-[var(--foreground)] shadow-sm">
-            <input type="checkbox" checked={isMystery} onChange={(event) => onMysteryChange(event.target.checked)} className="h-4 w-4 rounded border-[var(--border-strong)]" />
-            Mystery reward
-          </label>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="submit" className="rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90">{submitLabel}</button>
-          {onCancel && <button type="button" onClick={onCancel} className="rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-3 text-sm font-medium text-[var(--foreground)] shadow-sm hover:bg-white">Cancel</button>}
-        </div>
-      </form>
-    </section>
+      </main>
+    </>
   );
 }
