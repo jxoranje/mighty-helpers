@@ -97,7 +97,7 @@ function KidTile({
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/70 text-xl shadow-sm ${tileColor}`}
           >
             <span className="drop-shadow-sm">
-              {kid.avatar?.trim() || "⭐"}
+              {kid.avatar?.trim() || kid.name.slice(0, 1).toUpperCase()}
             </span>
           </div>
 
@@ -160,13 +160,11 @@ export default function DashboardPage() {
   const [kidName, setKidName] = useState("");
   const [kidStars, setKidStars] = useState("0");
   const [kidLevel, setKidLevel] = useState("1");
-  const [kidAvatar, setKidAvatar] = useState("");
   const [kidColor, setKidColor] = useState<KidColor>("blue");
 
   const [newKidName, setNewKidName] = useState("");
   const [newKidStars, setNewKidStars] = useState("0");
   const [newKidLevel, setNewKidLevel] = useState("1");
-  const [newKidAvatar, setNewKidAvatar] = useState("");
   const [newKidColor, setNewKidColor] = useState<KidColor>("blue");
 
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
@@ -276,7 +274,6 @@ export default function DashboardPage() {
     setNewKidName("");
     setNewKidStars("0");
     setNewKidLevel("1");
-    setNewKidAvatar("");
     setNewKidColor("blue");
   }
 
@@ -317,7 +314,7 @@ export default function DashboardPage() {
     }
 
     const trimmedName = kidName.trim();
-    const trimmedAvatar = kidAvatar.trim();
+    const initial = trimmedName.slice(0, 1).toUpperCase();
     const parsedStars = Number(kidStars);
     const parsedLevel = Number(kidLevel);
 
@@ -343,7 +340,7 @@ export default function DashboardPage() {
         .from("kids")
         .update({
           name: trimmedName,
-          avatar: trimmedAvatar || null,
+          avatar: initial || null,
           stars: parsedStars,
           level: parsedLevel,
           color: kidColor,
@@ -386,7 +383,7 @@ export default function DashboardPage() {
     }
 
     const trimmedName = newKidName.trim();
-    const trimmedAvatar = newKidAvatar.trim();
+    const initial = trimmedName.slice(0, 1).toUpperCase();
     const parsedStars = Number(newKidStars);
     const parsedLevel = Number(newKidLevel);
 
@@ -413,7 +410,7 @@ export default function DashboardPage() {
         .insert({
           household_id: householdId,
           name: trimmedName,
-          avatar: trimmedAvatar || null,
+          avatar: initial || null,
           stars: parsedStars,
           level: parsedLevel,
           color: newKidColor,
@@ -771,26 +768,6 @@ export default function DashboardPage() {
                               setNewKidName(event.target.value)
                             }
                             placeholder="Enter helper name"
-                            className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
-                          />
-                        </div>
-
-                        <div>
-                          <label
-                            htmlFor="new-kid-avatar"
-                            className="mb-2 block text-sm font-medium text-[var(--foreground)]"
-                          >
-                            Avatar
-                          </label>
-
-                          <input
-                            id="new-kid-avatar"
-                            type="text"
-                            value={newKidAvatar}
-                            onChange={(event) =>
-                              setNewKidAvatar(event.target.value)
-                            }
-                            placeholder="Optional emoji or short label"
                             className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
                           />
                         </div>
