@@ -663,7 +663,7 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           onClick={startAddKid}
-                          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-white px-5 py-2 text-sm font-semibold text-[var(--accent-strong)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-white/92"
+                          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-white px-5 py-2 text-sm font-semibold text-[var(--accent)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-white/92"
                         >
                           Add helper
                         </button>
