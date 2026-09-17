@@ -446,10 +446,6 @@ export default function KidChoresPage() {
     } catch (err: unknown) {
       console.error("complete_kid_chore failed", err);
 
-      /*
-       * Postgrest/Supabase errors are commonly plain objects rather than
-       * JavaScript Error instances, so read their message property safely.
-       */
       const detailedMessage =
         typeof err === "object" && err !== null && "message" in err
           ? String((err as { message?: unknown }).message)
@@ -458,10 +454,41 @@ export default function KidChoresPage() {
       const finalMessage =
         detailedMessage || "Unable to complete this chore.";
 
+      const alreadyCompleted =
+        finalMessage.toLowerCase().includes("already been completed") ||
+        finalMessage.toLowerCase().includes("already completed");
+
       /*
-       * Keep the existing global error for general visibility, but also put
-       * the message directly inside the exact chore card that triggered it.
+       * The database is the source of truth. If it says this chore has
+       * already been completed for the current period, reflect that state
+       * immediately in the UI rather than leaving a usable completion button.
        */
+      if (alreadyCompleted) {
+        setChoreItems((previous) =>
+          previous.map((entry) =>
+            entry.id === item.id
+              ? {
+                  ...entry,
+                  source: "assignment",
+                  status: "completed",
+                  assigned_for_date: getTodayIso(),
+                }
+              : entry
+          )
+        );
+
+        setConfirmingItemId(null);
+
+        setCompletionErrors((previous) => {
+          const next = { ...previous };
+          delete next[item.id];
+          return next;
+        });
+
+        setMessage(`"${item.title}" has already been completed today.`);
+        return;
+      }
+
       setPageError(finalMessage);
 
       setCompletionErrors((previous) => ({
@@ -671,7 +698,7 @@ export default function KidChoresPage() {
                       key={item.id}
                       className={`rounded-[1.75rem] border p-5 shadow-sm transition-all duration-200 ${
                         isCompleted
-                          ? "border-[var(--border-soft)] bg-[var(--panel-soft)] opacity-80"
+                          ? "border-[var(--border-soft)] bg-[#f1f3f5] opacity-75"
                           : isRecurringOnly
                             ? "border-[var(--border-soft)] bg-white/78"
                             : "border-[var(--star-border)] bg-[linear-gradient(180deg,_#fffdfa_0%,_#fff7ea_100%)]"
@@ -811,9 +838,13 @@ export default function KidChoresPage() {
                           )}
 
                           {isCompleted && (
-                            <div className="rounded-2xl border border-[var(--border-soft)] bg-white/70 px-4 py-3 text-center text-sm font-semibold text-[var(--muted)]">
-                              ✓ Completed today
-                            </div>
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--panel-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--muted)] opacity-90"
+                              >
+                            ✓ Completed today
+                           </button>
                           )}
 
                           {inlineError && (
