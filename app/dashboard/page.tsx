@@ -601,13 +601,6 @@ export default function DashboardPage() {
                     household routine running smoothly.
                   </p>
                 </div>
-
-                <Link
-                  href="/kids"
-                  className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)]"
-                >
-                  Open kid screen
-                </Link>
               </div>
 
               {(pageError || message) && (
