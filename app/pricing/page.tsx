@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 import logo from "@/app/components/images/logo.png";
-import AppNav from "@/app/components/AppNav";
 
 const included = [
   "One household with unlimited helpers",
@@ -54,8 +53,6 @@ export default function PricingPage() {
   }
 
   return (
-        <>
-          <AppNav />
     <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-4 py-2">
@@ -128,6 +125,5 @@ export default function PricingPage() {
         </section>
       </div>
     </main>
-    </>
   );
 }
