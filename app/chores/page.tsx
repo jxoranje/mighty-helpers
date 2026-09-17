@@ -370,24 +370,24 @@ function ChoreForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <FieldLabel htmlFor="chore-stars">Star value</FieldLabel>
+<div>
+  <FieldLabel htmlFor="chore-stars">Star value</FieldLabel>
 
-          <div className="relative">
-            <FieldInput
-              id="chore-stars"
-              type="number"
-              min="0"
-              value={starValue}
-              onChange={(event) => onStarValueChange(event.target.value)}
-              className="pr-16"
-            />
+  <div className="flex items-center gap-3">
+    <FieldInput
+      id="chore-stars"
+      type="number"
+      min="0"
+      value={starValue}
+      onChange={(event) => onStarValueChange(event.target.value)}
+      className="max-w-[140px]"
+    />
 
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[var(--star-text)]">
-              stars
-            </span>
-          </div>
-        </div>
+    <span className="text-sm font-semibold text-[var(--star-text)]">
+      stars
+    </span>
+  </div>
+</div>
 
         <div>
           <FieldLabel htmlFor="chore-recurrence">Recurrence</FieldLabel>
