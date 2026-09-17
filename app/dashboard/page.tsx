@@ -265,7 +265,6 @@ export default function DashboardPage() {
     setKidName("");
     setKidStars("0");
     setKidLevel("1");
-    setKidAvatar("");
     setKidColor("blue");
     setConfirmDeleteKidId(null);
   }
@@ -299,7 +298,6 @@ export default function DashboardPage() {
     setKidName(kid.name);
     setKidStars(String(kid.stars ?? 0));
     setKidLevel(String(kid.level ?? 1));
-    setKidAvatar(kid.avatar ?? "");
     setKidColor(kid.color ?? "blue");
   }
 
@@ -976,26 +974,6 @@ export default function DashboardPage() {
                                       className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
                                     />
                                   </div>
-                                </div>
-
-                                <div>
-                                  <label
-                                    htmlFor={`kid-avatar-${kid.id}`}
-                                    className="mb-2 block text-sm font-medium text-[var(--foreground)]"
-                                  >
-                                    Avatar
-                                  </label>
-
-                                  <input
-                                    id={`kid-avatar-${kid.id}`}
-                                    type="text"
-                                    value={kidAvatar}
-                                    onChange={(event) =>
-                                      setKidAvatar(event.target.value)
-                                    }
-                                    placeholder="Optional emoji or short label"
-                                    className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
-                                  />
                                 </div>
 
                                 <ColorPicker
