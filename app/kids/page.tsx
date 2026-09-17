@@ -193,8 +193,8 @@ if (loading) {
               <Image
                 src={logo}
                 alt="Mighty Helpers"
-                width={48}
-                height={48}
+                width={100}
+                height={100}
                 className="h-10 w-10 rounded-2xl object-cover shadow-sm sm:h-12 sm:w-12"
                 priority
               />

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
+import Image from "next/image";
+import logo from "@/app/components/images/logo.png";
 import AppNav from "@/app/components/AppNav";
 
 type HouseholdMemberLookup = {
@@ -586,23 +588,34 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-[var(--blob-pink)] blur-3xl opacity-45" />
 
             <div className="relative p-5 sm:p-8 md:p-10">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                    Parent dashboard
-                  </p>
+<div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+  <div className="flex items-start gap-4 sm:gap-5">
+    <Image
+      src={logo}
+      alt="Mighty Helpers"
+      width={100}
+      height={100}
+      className="h-[72px] w-[72px] shrink-0 rounded-[1.5rem] object-cover shadow-[0_12px_30px_rgba(33,53,85,0.14)] sm:h-[96px] sm:w-[96px] sm:rounded-[1.85rem]"
+      priority
+    />
 
-                  <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                    Your household, all in one place
-                  </h1>
+    <div className="max-w-2xl pt-1 sm:pt-2">
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
+        Parent dashboard
+      </p>
 
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
-                    Add helpers, create chores and rewards, and keep your
-                    household routine running smoothly.
-                  </p>
-                </div>
-              </div>
+      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
+        Your household, all in one place
+      </h1>
 
+      <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
+        Add helpers, create chores and rewards, and keep your household
+        routine running smoothly.
+      </p>
+    </div>
+  </div>
+  </div>
+              
               {(pageError || message) && (
                 <div className="mt-6 space-y-3">
                   {pageError && (
