@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { ChoreCategoryBadge, ChoreCategoryPicker } from "@/app/components/chore-category-picker";
+import {
+  ChoreCategoryBadge,
+  ChoreCategoryPicker,
+} from "@/app/components/chore-category-picker";
 import type { ChoreCategoryKey } from "@/lib/chore-categories";
 import AppNav from "@/app/components/AppNav";
 
@@ -66,6 +74,21 @@ type ChoreUpdate = {
   is_active: boolean;
 };
 
+type NoticeType = "success" | "error";
+
+const CHORE_SELECT = `
+  id,
+  household_id,
+  kid_id,
+  title,
+  description,
+  star_value,
+  category,
+  recurrence_type,
+  is_active,
+  kids(name)
+`;
+
 function formatRecurrenceLabel(recurrenceType: RecurrenceType) {
   switch (recurrenceType) {
     case "one_off":
@@ -103,74 +126,102 @@ function normalizeChore(row: ChoreRow): Chore {
 function sortChores(list: Chore[]) {
   return [...list].sort((a, b) => {
     const kidCompare = (a.kid_name || "").localeCompare(b.kid_name || "");
-    if (kidCompare !== 0) return kidCompare;
+
+    if (kidCompare !== 0) {
+      return kidCompare;
+    }
+
     return a.title.localeCompare(b.title);
   });
 }
 
-function getTone(index: number) {
-  const tones = [
-    {
-      card: "bg-[linear-gradient(180deg,_rgba(255,255,255,0.9),_rgba(255,248,238,0.96))] border-[rgba(196,168,129,0.22)]",
-      badge: "bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] border-[rgba(196,168,129,0.18)]",
-      accent: "text-[var(--accent-strong)]",
-    },
-    {
-      card: "bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(244,250,255,0.96))] border-[rgba(119,154,196,0.20)]",
-      badge: "bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] border-[rgba(119,154,196,0.18)]",
-      accent: "text-[var(--accent)]",
-    },
-    {
-      card: "bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(245,252,246,0.96))] border-[rgba(126,171,139,0.20)]",
-      badge: "bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] border-[rgba(126,171,139,0.18)]",
-      accent: "text-[var(--success-strong)]",
-    },
-  ];
-
-  return tones[index % tones.length];
-}
-
-function SectionMessage({
+function Notice({
   type,
   children,
 }: {
-  type: "success" | "error";
+  type: NoticeType;
   children: React.ReactNode;
 }) {
-  const styles =
+  const classes =
     type === "success"
-      ? "border-[rgba(96,145,107,0.20)] bg-[rgba(242,251,244,0.95)] text-[rgb(54,98,63)]"
-      : "border-[rgba(190,84,84,0.18)] bg-[rgba(255,240,240,0.95)] text-[rgb(140,62,62)]";
+      ? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]"
+      : "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-text)]";
 
   return (
-    <div className={`rounded-[1.35rem] border px-4 py-3 text-sm shadow-sm ${styles}`}>
+    <div className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${classes}`}>
       {children}
     </div>
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function StatCard({
+  label,
+  number,
+  tone,
+}: {
+  label: string;
+  number: number;
+  tone: "accent" | "success" | "star";
+}) {
+  const tones = {
+    accent:
+      "border-[var(--border-soft)] bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+    success:
+      "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]",
+    star: "border-[var(--star-border)] bg-[var(--star-soft)] text-[var(--star-text)]",
+  };
+
   return (
-    <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">
+    <article className={`rounded-[1.5rem] border p-4 ${tones[tone]}`}>
+      <p className="text-2xl font-semibold">{number}</p>
+
+      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] opacity-80">
+        {label}
+      </p>
+    </article>
+  );
+}
+
+function FieldLabel({
+  htmlFor,
+  children,
+}: {
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+    >
       {children}
     </label>
   );
 }
 
-function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function FieldInput(
+  props: React.InputHTMLAttributes<HTMLInputElement> & {
+    inputRef?: React.RefObject<HTMLInputElement | null>;
+  }
+) {
+  const { inputRef, ...inputProps } = props;
+
   return (
     <input
-      {...props}
-      className="w-full rounded-[1.1rem] border border-[var(--border-soft)] bg-white/88 px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:bg-white focus:shadow-[0_0_0_4px_rgba(127,168,212,0.14)]"
+      ref={inputRef}
+      {...inputProps}
+      className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
     />
   );
 }
 
-function FieldSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+function FieldSelect(
+  props: React.SelectHTMLAttributes<HTMLSelectElement>
+) {
   return (
     <select
       {...props}
-      className="w-full rounded-[1.1rem] border border-[var(--border-soft)] bg-white/88 px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-white focus:shadow-[0_0_0_4px_rgba(127,168,212,0.14)]"
+      className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
     />
   );
 }
@@ -179,27 +230,229 @@ function FieldCheckbox({
   checked,
   onChange,
   label,
+  description,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
+  description: string;
 }) {
   return (
-    <label className="inline-flex items-center gap-3 rounded-full border border-[var(--border-soft)] bg-white/80 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm">
+    <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--border-soft)] bg-white/80 p-4 transition-colors hover:bg-white">
       <input
         type="checkbox"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-[var(--border-strong)]"
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5 h-4 w-4 rounded border-[var(--border-strong)] accent-[var(--accent)]"
       />
-      {label}
+
+      <span>
+        <span className="block text-sm font-semibold text-[var(--foreground)]">
+          {label}
+        </span>
+
+        <span className="mt-1 block text-sm leading-6 text-[var(--muted)]">
+          {description}
+        </span>
+      </span>
     </label>
+  );
+}
+
+type ChoreFormProps = {
+  mode: "create" | "edit";
+  kids: Kid[];
+  kidId: string;
+  title: string;
+  description: string;
+  starValue: string;
+  category: ChoreCategoryKey | "";
+  recurrenceType: RecurrenceType;
+  isActive: boolean;
+  submitLabel: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onKidChange: (value: string) => void;
+  onTitleChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onStarValueChange: (value: string) => void;
+  onCategoryChange: (value: ChoreCategoryKey | "") => void;
+  onRecurrenceTypeChange: (value: RecurrenceType) => void;
+  onActiveChange: (value: boolean) => void;
+  onCancel?: () => void;
+  titleInputRef?: React.RefObject<HTMLInputElement | null>;
+};
+
+function ChoreForm({
+  mode,
+  kids,
+  kidId,
+  title,
+  description,
+  starValue,
+  category,
+  recurrenceType,
+  isActive,
+  submitLabel,
+  onSubmit,
+  onKidChange,
+  onTitleChange,
+  onDescriptionChange,
+  onStarValueChange,
+  onCategoryChange,
+  onRecurrenceTypeChange,
+  onActiveChange,
+  onCancel,
+  titleInputRef,
+}: ChoreFormProps) {
+  const isEditing = mode === "edit";
+
+  if (kids.length === 0) {
+    return (
+      <div className="mt-6 rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--panel-muted)] p-5 text-sm leading-6 text-[var(--muted)]">
+        Add at least one active helper in the Parent Dashboard before creating
+        chores.
+        <Link
+          href="/dashboard"
+          className="mt-3 inline-flex font-semibold text-[var(--accent)] underline underline-offset-4"
+        >
+          Go to Parent Dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <div>
+        <FieldLabel htmlFor="chore-helper">Helper</FieldLabel>
+
+        <FieldSelect
+          id="chore-helper"
+          value={kidId}
+          onChange={(event) => onKidChange(event.target.value)}
+        >
+          <option value="">Select a helper</option>
+
+          {kids.map((kid) => (
+            <option key={kid.id} value={kid.id}>
+              {kid.name}
+            </option>
+          ))}
+        </FieldSelect>
+      </div>
+
+      <div>
+        <FieldLabel htmlFor="chore-title">Chore name</FieldLabel>
+
+        <FieldInput
+          inputRef={titleInputRef}
+          id="chore-title"
+          type="text"
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+          placeholder="Brush teeth"
+        />
+      </div>
+
+      <div>
+        <FieldLabel htmlFor="chore-description">
+          Description <span className="font-normal text-[var(--muted)]">(optional)</span>
+        </FieldLabel>
+
+        <textarea
+          id="chore-description"
+          value={description}
+          onChange={(event) => onDescriptionChange(event.target.value)}
+          placeholder="Brush for two minutes before bed."
+          rows={3}
+          className="w-full resize-none rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <FieldLabel htmlFor="chore-stars">Star value</FieldLabel>
+
+          <div className="relative">
+            <FieldInput
+              id="chore-stars"
+              type="number"
+              min="0"
+              value={starValue}
+              onChange={(event) => onStarValueChange(event.target.value)}
+              className="pr-16"
+            />
+
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[var(--star-text)]">
+              stars
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="chore-recurrence">Recurrence</FieldLabel>
+
+          <FieldSelect
+            id="chore-recurrence"
+            value={recurrenceType}
+            onChange={(event) =>
+              onRecurrenceTypeChange(event.target.value as RecurrenceType)
+            }
+          >
+            <option value="one_off">One-off</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Every other week</option>
+          </FieldSelect>
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel htmlFor="chore-category">
+          Category icon <span className="font-normal text-[var(--muted)]">(optional)</span>
+        </FieldLabel>
+
+        <div id="chore-category">
+          <ChoreCategoryPicker
+            value={category}
+            onChange={onCategoryChange}
+          />
+        </div>
+      </div>
+
+      <FieldCheckbox
+        checked={isActive}
+        onChange={onActiveChange}
+        label="Active chore"
+        description="Active chores appear in the helper’s everyday chore list."
+      />
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button
+          type="submit"
+          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,118,110,0.24)] transition-colors hover:bg-[var(--accent-hover)]"
+        >
+          {submitLabel}
+        </button>
+
+        {isEditing && onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)]"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
   );
 }
 
 export default function ChoresPage() {
   const supabase = useMemo(() => createBrowserClient(), []);
-  const router = useRouter();
+  const choreFormRef = useRef<HTMLElement | null>(null);
+  const choreTitleInputRef = useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -222,125 +475,173 @@ export default function ChoresPage() {
   const [editingTitle, setEditingTitle] = useState("");
   const [editingDescription, setEditingDescription] = useState("");
   const [editingStarValue, setEditingStarValue] = useState("1");
-  const [editingCategory, setEditingCategory] = useState<ChoreCategoryKey | "">("");
+  const [editingCategory, setEditingCategory] = useState<
+    ChoreCategoryKey | ""
+  >("");
   const [editingRecurrenceType, setEditingRecurrenceType] =
     useState<RecurrenceType>("daily");
   const [editingIsActive, setEditingIsActive] = useState(true);
 
-  const [chorePendingDeleteId, setChorePendingDeleteId] = useState<string | null>(
-    null
-  );
+  const [chorePendingDeleteId, setChorePendingDeleteId] = useState<
+    string | null
+  >(null);
+
+  const [savingChore, setSavingChore] = useState(false);
+  const [deletingChoreId, setDeletingChoreId] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadChores() {
       setLoading(true);
       setError("");
       setMessage("");
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        setError("You are not logged in.");
-        setLoading(false);
-        return;
+        if (cancelled) return;
+
+        if (userError || !user) {
+          throw new Error("You are not logged in.");
+        }
+
+        const { data: memberRow, error: memberError } = await supabase
+          .from("household_members")
+          .select("household_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (memberError) {
+          throw memberError;
+        }
+
+        const typedMemberRow = memberRow as HouseholdMemberLookup | null;
+
+        if (!typedMemberRow?.household_id) {
+          throw new Error("No household found for this user.");
+        }
+
+        const hid = typedMemberRow.household_id;
+        setHouseholdId(hid);
+
+        const [
+          { data: kidRows, error: kidsError },
+          { data: choreRows, error: choresError },
+        ] = await Promise.all([
+          supabase
+            .from("kids")
+            .select("id, name")
+            .eq("household_id", hid)
+            .is("archived_at", null)
+            .order("name", { ascending: true }),
+          supabase
+            .from("chores")
+            .select(CHORE_SELECT)
+            .eq("household_id", hid)
+            .order("created_at", { ascending: true }),
+        ]);
+
+        if (cancelled) return;
+
+        if (kidsError) {
+          throw kidsError;
+        }
+
+        if (choresError) {
+          throw choresError;
+        }
+
+        setKids((kidRows as Kid[]) || []);
+        setChores(
+          sortChores(((choreRows as ChoreRow[]) || []).map(normalizeChore))
+        );
+      } catch (err: unknown) {
+        console.error("Unable to load chores:", err);
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load your household chores."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-
-      const { data: memberRow, error: memberError } = await supabase
-        .from("household_members")
-        .select("household_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const typedMemberRow = memberRow as HouseholdMemberLookup | null;
-
-      if (memberError) {
-        setError(memberError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!typedMemberRow?.household_id) {
-        setError("No household found for this user.");
-        setLoading(false);
-        return;
-      }
-
-      const hid = typedMemberRow.household_id;
-      setHouseholdId(hid);
-
-      const [
-        { data: kidRows, error: kidsError },
-        { data: choreRows, error: choresError },
-      ] = await Promise.all([
-        supabase
-          .from("kids")
-          .select("id, name")
-          .eq("household_id", hid)
-          .is("archived_at", null)
-          .order("name", { ascending: true }),
-        supabase
-          .from("chores")
-          .select(
-            `
-              id,
-              household_id,
-              kid_id,
-              title,
-              description,
-              star_value,
-              category,
-              recurrence_type,
-              is_active,
-              kids(name)
-            `
-          )
-          .eq("household_id", hid)
-          .order("created_at", { ascending: true }),
-      ]);
-
-      if (kidsError) {
-        setError(kidsError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (choresError) {
-        setError(choresError.message);
-        setLoading(false);
-        return;
-      }
-
-      setKids((kidRows as Kid[]) || []);
-      setChores(sortChores(((choreRows as ChoreRow[]) || []).map(normalizeChore)));
-      setLoading(false);
     }
 
-    loadChores();
+    void loadChores();
+
+    return () => {
+      cancelled = true;
+    };
   }, [supabase]);
 
-  async function handleCreateChore(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function resetNewChoreForm() {
+    setNewKidId("");
+    setNewTitle("");
+    setNewDescription("");
+    setNewStarValue("1");
+    setNewCategory("");
+    setNewRecurrenceType("daily");
+    setNewIsActive(true);
+  }
+
+  function cancelEditingChore() {
+    setEditingChoreId(null);
+    setEditingKidId("");
+    setEditingTitle("");
+    setEditingDescription("");
+    setEditingStarValue("1");
+    setEditingCategory("");
+    setEditingRecurrenceType("daily");
+    setEditingIsActive(true);
+    setChorePendingDeleteId(null);
+  }
+
+  function focusChoreForm() {
+    setError("");
+    setMessage("");
+    cancelEditingChore();
+
+    window.setTimeout(() => {
+      choreFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      choreTitleInputRef.current?.focus();
+    }, 0);
+  }
+
+  async function handleCreateChore(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError("");
     setMessage("");
 
     if (!householdId) {
-      setError("Household not loaded yet.");
+      setError("Your household has not loaded yet. Please refresh and try again.");
       return;
     }
 
     if (!newKidId) {
-      setError("Please choose a kid for this chore.");
+      setError("Please choose a helper for this chore.");
       return;
     }
 
     const title = newTitle.trim();
-    const starValue = parseInt(newStarValue, 10);
+    const starValue = Number.parseInt(newStarValue, 10);
 
     if (!title) {
-      setError("Please enter a chore title.");
+      setError("Please enter a chore name.");
       return;
     }
 
@@ -349,50 +650,42 @@ export default function ChoresPage() {
       return;
     }
 
-    const chorePayload: ChoreInsert = {
-      household_id: householdId,
-      kid_id: newKidId,
-      title,
-      description: newDescription.trim() || null,
-      star_value: starValue,
-      category: newCategory || null,
-      recurrence_type: newRecurrenceType,
-      is_active: newIsActive,
-    };
+    setSavingChore(true);
 
-    const { data, error: insertError } = await supabase
-      .from("chores")
-      .insert(chorePayload as never)
-      .select(
-        `
-          id,
-          household_id,
-          kid_id,
-          title,
-          description,
-          star_value,
-          category,
-          recurrence_type,
-          is_active,
-          kids(name)
-        `
-      )
-      .single();
+    try {
+      const chorePayload: ChoreInsert = {
+        household_id: householdId,
+        kid_id: newKidId,
+        title,
+        description: newDescription.trim() || null,
+        star_value: starValue,
+        category: newCategory || null,
+        recurrence_type: newRecurrenceType,
+        is_active: newIsActive,
+      };
 
-    if (insertError) {
-      setError(insertError.message);
-      return;
+      const { data, error: insertError } = await supabase
+        .from("chores")
+        .insert(chorePayload as never)
+        .select(CHORE_SELECT)
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      const newChore = normalizeChore(data as ChoreRow);
+
+      setChores((previous) => sortChores([...previous, newChore]));
+      resetNewChoreForm();
+      setMessage(`${newChore.title} was added.`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to add this chore."
+      );
+    } finally {
+      setSavingChore(false);
     }
-
-    setChores((prev) => sortChores([...prev, normalizeChore(data as ChoreRow)]));
-    setNewKidId("");
-    setNewTitle("");
-    setNewDescription("");
-    setNewStarValue("1");
-    setNewCategory("");
-    setNewRecurrenceType("daily");
-    setNewIsActive(true);
-    setMessage("Chore added.");
   }
 
   function startEditingChore(chore: Chore) {
@@ -407,21 +700,19 @@ export default function ChoresPage() {
     setEditingIsActive(chore.is_active);
     setError("");
     setMessage("");
+
+    window.setTimeout(() => {
+      choreFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      choreTitleInputRef.current?.focus();
+    }, 0);
   }
 
-  function cancelEditingChore() {
-    setEditingChoreId(null);
-    setEditingKidId("");
-    setEditingTitle("");
-    setEditingDescription("");
-    setEditingStarValue("1");
-    setEditingCategory("");
-    setEditingRecurrenceType("daily");
-    setEditingIsActive(true);
-  }
-
-  async function handleUpdateChore(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleUpdateChore(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError("");
     setMessage("");
 
@@ -431,15 +722,15 @@ export default function ChoresPage() {
     }
 
     if (!editingKidId) {
-      setError("Please choose a kid for this chore.");
+      setError("Please choose a helper for this chore.");
       return;
     }
 
     const title = editingTitle.trim();
-    const starValue = parseInt(editingStarValue, 10);
+    const starValue = Number.parseInt(editingStarValue, 10);
 
     if (!title) {
-      setError("Please enter a chore title.");
+      setError("Please enter a chore name.");
       return;
     }
 
@@ -448,51 +739,50 @@ export default function ChoresPage() {
       return;
     }
 
-    const choreUpdatePayload: ChoreUpdate = {
-      kid_id: editingKidId,
-      title,
-      description: editingDescription.trim() || null,
-      star_value: starValue,
-      category: editingCategory || null,
-      recurrence_type: editingRecurrenceType,
-      is_active: editingIsActive,
-    };
+    setSavingChore(true);
 
-    const { data, error: updateError } = await supabase
-      .from("chores")
-      .update(choreUpdatePayload as never)
-      .eq("id", editingChoreId)
-      .eq("household_id", householdId)
-      .select(
-        `
-          id,
-          household_id,
-          kid_id,
-          title,
-          description,
-          star_value,
-          category,
-          recurrence_type,
-          is_active,
-          kids(name)
-        `
-      )
-      .single();
+    try {
+      const choreUpdatePayload: ChoreUpdate = {
+        kid_id: editingKidId,
+        title,
+        description: editingDescription.trim() || null,
+        star_value: starValue,
+        category: editingCategory || null,
+        recurrence_type: editingRecurrenceType,
+        is_active: editingIsActive,
+      };
 
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
+      const { data, error: updateError } = await supabase
+        .from("chores")
+        .update(choreUpdatePayload as never)
+        .eq("id", editingChoreId)
+        .eq("household_id", householdId)
+        .select(CHORE_SELECT)
+        .single();
 
-    setChores((prev) =>
-      sortChores(
-        prev.map((chore) =>
-          chore.id === editingChoreId ? normalizeChore(data as ChoreRow) : chore
+      if (updateError) {
+        throw updateError;
+      }
+
+      const updatedChore = normalizeChore(data as ChoreRow);
+
+      setChores((previous) =>
+        sortChores(
+          previous.map((chore) =>
+            chore.id === editingChoreId ? updatedChore : chore
+          )
         )
-      )
-    );
-    setMessage("Chore updated.");
-    cancelEditingChore();
+      );
+
+      cancelEditingChore();
+      setMessage(`${updatedChore.title} was updated.`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to update this chore."
+      );
+    } finally {
+      setSavingChore(false);
+    }
   }
 
   async function handleDeleteChore(id: string) {
@@ -500,24 +790,38 @@ export default function ChoresPage() {
     setMessage("");
 
     if (!householdId) {
-      setError("Household not loaded yet.");
+      setError("Your household has not loaded yet. Please refresh and try again.");
       return;
     }
 
-    const { error: deleteError } = await supabase
-      .from("chores")
-      .delete()
-      .eq("id", id)
-      .eq("household_id", householdId);
+    setDeletingChoreId(id);
 
-    if (deleteError) {
-      setError(deleteError.message);
-      return;
+    try {
+      const { error: deleteError } = await supabase
+        .from("chores")
+        .delete()
+        .eq("id", id)
+        .eq("household_id", householdId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      setChores((previous) => previous.filter((chore) => chore.id !== id));
+      setChorePendingDeleteId(null);
+
+      if (editingChoreId === id) {
+        cancelEditingChore();
+      }
+
+      setMessage("Chore deleted.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to delete this chore."
+      );
+    } finally {
+      setDeletingChoreId(null);
     }
-
-    setChores((prev) => prev.filter((chore) => chore.id !== id));
-    setChorePendingDeleteId(null);
-    setMessage("Chore deleted.");
   }
 
   const activeCount = useMemo(
@@ -532,413 +836,348 @@ export default function ChoresPage() {
 
   const editingMode = Boolean(editingChoreId);
 
-if (loading) {
+  if (loading) {
+    return (
+      <>
+        <AppNav />
+
+        <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
+          <div className="mx-auto max-w-6xl">
+            <section className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
+              <p className="text-sm text-[var(--muted)]">
+                Loading household chores…
+              </p>
+            </section>
+          </div>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       <AppNav />
+
       <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)] backdrop-blur">
-            <p className="text-sm text-[var(--muted)]">Loading kids...</p>
-          </div>
-        </div>
-      </main>
-    </>
-  );
-}
+        <div className="mx-auto max-w-6xl">
+          <section className="relative overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(255,255,255,0.58)_36%,_transparent_68%)]" />
+            <div className="pointer-events-none absolute -left-10 top-20 h-40 w-40 rounded-full bg-[var(--blob-yellow)] blur-3xl opacity-55" />
+            <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-[var(--blob-pink)] blur-3xl opacity-45" />
+            <div className="pointer-events-none absolute bottom-0 right-16 h-40 w-40 rounded-full bg-[var(--blob-blue)] blur-3xl opacity-45" />
 
-  return (
-        <>
-      <AppNav />
-    <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-6xl">
-        <section className="relative overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(255,255,255,0.55)_34%,_transparent_72%)]" />
-          <div className="pointer-events-none absolute -left-10 top-20 h-40 w-40 rounded-full bg-[var(--blob-yellow)] blur-3xl opacity-60" />
-          <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-[var(--blob-pink)] blur-3xl opacity-45" />
-          <div className="pointer-events-none absolute bottom-0 right-16 h-40 w-40 rounded-full bg-[var(--blob-blue)] blur-3xl opacity-50" />
+            <div className="relative p-5 sm:p-8 md:p-10">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
+                    Parent tools
+                  </p>
 
-          <div className="relative p-5 sm:p-8 md:p-10">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button
-                type="button"
-                onClick={() => router.push("/")}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-              >
-                ← Back to home
-              </button>
+                  <h1 className="mt-3 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
+                    Chores
+                  </h1>
 
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard")}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-              >
-                Manage your household
-              </button>
-            </div>
+                  <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">
+                    Create clear tasks, assign them to helpers, and set the
+                    stars each chore earns.
+                  </p>
+                </div>
 
-            {error === "You are not logged in." && (
-              <div className="mt-5">
-                <Link
-                  href="/login"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+                <button
+                  type="button"
+                  onClick={focusChoreForm}
+                  className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)]"
                 >
-                  Log in to your household
-                </Link>
-              </div>
-            )}
-
-            <div className="mt-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-              <div>
-                <div className="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-medium text-[var(--accent-strong)] shadow-sm">
-                  Household chores
-                </div>
-
-                <h1 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-6xl">
-                  Build routines that feel clear and motivating
-                </h1>
-
-                <p className="mt-4 max-w-2xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                  Add chores, assign them to each child, and keep the reward loop easy to manage.
-                </p>
+                  + Add chore
+                </button>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                <div className="rounded-[1.5rem] border border-[var(--border-soft)] bg-white/72 p-4 shadow-sm backdrop-blur">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
-                    Total chores
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-                    {chores.length}
-                  </p>
-                </div>
-
-                <div className="rounded-[1.5rem] border border-[var(--border-soft)] bg-white/72 p-4 shadow-sm backdrop-blur">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
-                    Active chores
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-                    {activeCount}
-                  </p>
-                </div>
-
-                <div className="rounded-[1.5rem] border border-[var(--star-border)] bg-[linear-gradient(180deg,_#fffaf0_0%,_#fff2d6_100%)] p-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--star-text)]">
-                    Total stars
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-                    {totalStars}
-                  </p>
-                </div>
+              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                <StatCard
+                  label="Total chores"
+                  number={chores.length}
+                  tone="accent"
+                />
+                <StatCard
+                  label="Active chores"
+                  number={activeCount}
+                  tone="success"
+                />
+                <StatCard
+                  label="Stars available"
+                  number={totalStars}
+                  tone="star"
+                />
               </div>
-            </div>
 
-            <div className="mt-8 space-y-3">
-              {message && <SectionMessage type="success">{message}</SectionMessage>}
-              {error && <SectionMessage type="error">{error}</SectionMessage>}
-            </div>
+              {(message || error) && (
+                <div className="mt-6 space-y-3">
+                  {message && <Notice type="success">{message}</Notice>}
+                  {error && <Notice type="error">{error}</Notice>}
+                </div>
+              )}
 
-            <div className="mt-8 grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-              <section className="rounded-[1.85rem] border border-[var(--border-soft)] bg-white/74 p-5 shadow-sm backdrop-blur sm:p-6">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
-                      Current chores
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                      Household list
-                    </h2>
+              <div className="mt-10 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+                <section>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+                        Chore library
+                      </p>
+
+                      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+                        Current chores
+                      </h2>
+
+                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                        Create, edit, assign, and organize the tasks your
+                        household uses.
+                      </p>
+                    </div>
+
+                    <span className="inline-flex w-fit rounded-full border border-[var(--border-soft)] bg-white/80 px-4 py-2 text-xs font-semibold text-[var(--muted-strong)]">
+                      {chores.length}{" "}
+                      {chores.length === 1 ? "chore" : "chores"}
+                    </span>
                   </div>
-                  <p className="text-sm text-[var(--muted)]">Sorted by child, then title.</p>
-                </div>
 
-                {chores.length === 0 ? (
-                  <div className="mt-5 rounded-[1.5rem] border border-[var(--border-soft)] bg-[var(--panel-soft)] px-5 py-6 text-sm text-[var(--muted)]">
-                    No chores yet. Add your first one on this page.
-                  </div>
-                ) : (
-                  <div className="mt-5 space-y-4">
-                    {chores.map((chore, index) => {
-                      const tone = getTone(index);
+                  {chores.length === 0 ? (
+                    <div className="mt-5 rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--panel-muted)] p-8 text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-3xl">
+                        ✓
+                      </div>
 
-                      return (
-                        <article
-                          key={chore.id}
-                          className={`rounded-[1.6rem] border p-5 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 ${tone.card}`}
-                        >
-                          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap gap-2">
-                                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.badge}`}>
-                                  {chore.kid_name || "Unknown"}
-                                </span>
-                                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.badge}`}>
-                                  {formatRecurrenceLabel(chore.recurrence_type)}
-                                </span>
-                                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tone.badge}`}>
-                                  {chore.is_active ? "Active" : "Inactive"}
-                                </span>
+                      <h3 className="mt-4 text-lg font-semibold text-[var(--foreground)]">
+                        Create your first chore
+                      </h3>
+
+                      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">
+                        Begin with a small, clear task your helper can complete
+                        today.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={focusChoreForm}
+                        className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
+                      >
+                        Add a chore
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      {chores.map((chore, index) => {
+                        const isPendingDelete =
+                          chorePendingDeleteId === chore.id;
+                        const isDeleting = deletingChoreId === chore.id;
+
+                        const cardTone =
+                          index % 3 === 0
+                            ? "border-[rgba(196,168,129,0.22)] bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(255,248,238,0.96))]"
+                            : index % 3 === 1
+                              ? "border-[rgba(119,154,196,0.20)] bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(244,250,255,0.96))]"
+                              : "border-[rgba(126,171,139,0.20)] bg-[linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(245,252,246,0.96))]";
+
+                        return (
+                          <article
+                            key={chore.id}
+                            className={`rounded-[1.75rem] border p-5 shadow-sm transition-opacity ${
+                              chore.is_active
+                                ? cardTone
+                                : "border-[var(--border-soft)] bg-[var(--panel-muted)] opacity-75"
+                            }`}
+                          >
+                            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {chore.category && (
+                                    <ChoreCategoryBadge
+                                      categoryKey={chore.category}
+                                    />
+                                  )}
+
+                                  <span className="rounded-full border border-[var(--border-soft)] bg-white/80 px-2.5 py-1 text-xs font-semibold text-[var(--foreground)]">
+                                    {chore.kid_name || "Unassigned"}
+                                  </span>
+
+                                  <span className="rounded-full border border-[var(--border-soft)] bg-white/80 px-2.5 py-1 text-xs font-semibold text-[var(--foreground)]">
+                                    {formatRecurrenceLabel(
+                                      chore.recurrence_type
+                                    )}
+                                  </span>
+
+                                  <span
+                                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                      chore.is_active
+                                        ? "bg-[var(--success-soft)] text-[var(--success-text)]"
+                                        : "bg-[var(--panel-soft)] text-[var(--muted-strong)]"
+                                    }`}
+                                  >
+                                    {chore.is_active ? "Active" : "Inactive"}
+                                  </span>
+                                </div>
+
+                                <h3 className="mt-4 text-xl font-semibold text-[var(--foreground)]">
+                                  {chore.title}
+                                </h3>
+
+                                {chore.description && (
+                                  <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">
+                                    {chore.description}
+                                  </p>
+                                )}
                               </div>
 
-                              <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                                {chore.title}
-                              </h3>
+                              <div className="flex shrink-0 items-center gap-2 rounded-2xl border border-[var(--star-border)] bg-[var(--star-soft)] px-4 py-3">
+                                <span className="text-xl">★</span>
 
-                              {chore.description && (
-                                <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--foreground-soft)] sm:text-base">
-                                  {chore.description}
-                                </p>
-                              )}
+                                <div>
+                                  <p className="text-lg font-bold leading-none text-[var(--star-text)]">
+                                    {chore.star_value}
+                                  </p>
 
-                              <div className="mt-4 flex flex-wrap items-center gap-2">
-                                <span className="rounded-full bg-white/70 px-3 py-1.5 text-sm font-semibold text-[var(--foreground)]">
-                                  {chore.star_value} stars
-                                </span>
-                                {chore.category && (
-                                  <ChoreCategoryBadge categoryKey={chore.category} />
-                                )}
+                                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--star-text)]">
+                                    stars
+                                  </p>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                              {chorePendingDeleteId === chore.id ? (
-                                <div className="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-[rgba(190,84,84,0.18)] bg-[rgba(255,240,240,0.96)] px-3 py-3">
-                                  <span className="text-xs font-medium text-[rgb(140,62,62)]">
-                                    Delete this chore?
-                                  </span>
+                            {isPendingDelete ? (
+                              <div className="mt-5 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-4">
+                                <p className="text-sm font-medium text-[var(--danger-text)]">
+                                  Delete “{chore.title}” permanently?
+                                </p>
+
+                                <p className="mt-1 text-sm leading-6 text-[var(--danger-text)]">
+                                  This cannot be undone.
+                                </p>
+
+                                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteChore(chore.id)}
-                                    className="rounded-full bg-[rgb(173,67,67)] px-3 py-2 text-xs font-semibold text-white transition-colors duration-200 hover:bg-[rgb(153,57,57)]"
+                                    onClick={() =>
+                                      void handleDeleteChore(chore.id)
+                                    }
+                                    disabled={isDeleting}
+                                    className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--danger-button)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--danger-button-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                                   >
-                                    Delete
+                                    {isDeleting
+                                      ? "Deleting…"
+                                      : "Yes, delete chore"}
                                   </button>
+
                                   <button
                                     type="button"
                                     onClick={() => setChorePendingDeleteId(null)}
-                                    className="rounded-full border border-[var(--border-soft)] bg-white px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors duration-200 hover:bg-[var(--panel-soft)]"
+                                    disabled={isDeleting}
+                                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                                   >
-                                    Cancel
+                                    Keep chore
                                   </button>
                                 </div>
-                              ) : (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditingChore(chore)}
-                                    className={`rounded-full border bg-white/78 px-4 py-2 text-sm font-semibold shadow-sm transition-transform duration-200 hover:-translate-y-0.5 ${tone.accent}`}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      cancelEditingChore();
-                                      setChorePendingDeleteId(chore.id);
-                                    }}
-                                    className="rounded-full border border-[rgba(190,84,84,0.20)] bg-white/85 px-4 py-2 text-sm font-semibold text-[rgb(140,62,62)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5"
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+                              </div>
+                            ) : (
+                              <div className="mt-5 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditingChore(chore)}
+                                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)]"
+                                >
+                                  Edit chore
+                                </button>
 
-              <section className="rounded-[1.85rem] border border-[var(--border-soft)] bg-[linear-gradient(180deg,_rgba(255,255,255,0.88),_rgba(255,250,244,0.95))] p-5 shadow-sm sm:p-6">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    cancelEditingChore();
+                                    setChorePendingDeleteId(chore.id);
+                                  }}
+                                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--danger-border)] bg-white px-4 py-2 text-sm font-medium text-[var(--danger-text)] transition-colors hover:bg-[var(--danger-soft)]"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section
+                  ref={choreFormRef}
+                  className="h-fit rounded-[1.75rem] border border-[var(--border-soft)] bg-white/84 p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)] backdrop-blur sm:p-6"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
                     {editingMode ? "Edit mode" : "Create mode"}
                   </p>
+
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                    {editingMode ? "Update chore" : "Add a new chore"}
+                    {editingMode ? "Edit chore" : "Add a chore"}
                   </h2>
+
                   <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                     {editingMode
                       ? "Update the details below, then save your changes."
-                      : "Create chores that are simple to understand and easy for kids to complete."}
+                      : "Create clear tasks that helpers can understand and complete."}
                   </p>
-                </div>
 
-                {kids.length === 0 ? (
-                  <div className="mt-5 rounded-[1.5rem] border border-[var(--border-soft)] bg-white/80 px-5 py-6 text-sm text-[var(--muted)]">
-                    Add at least one active kid before managing chores.
-                  </div>
-                ) : !editingMode ? (
-                  <form onSubmit={handleCreateChore} className="mt-6 space-y-5">
-                    <div>
-                      <FieldLabel>Kid</FieldLabel>
-                      <FieldSelect value={newKidId} onChange={(e) => setNewKidId(e.target.value)}>
-                        <option value="">Select a kid</option>
-                        {kids.map((kid) => (
-                          <option key={kid.id} value={kid.id}>
-                            {kid.name}
-                          </option>
-                        ))}
-                      </FieldSelect>
-                    </div>
-
-                    <div>
-                      <FieldLabel>Title</FieldLabel>
-                      <FieldInput
-                        type="text"
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        placeholder="Brush teeth"
-                      />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Description (optional)</FieldLabel>
-                      <FieldInput
-                        type="text"
-                        value={newDescription}
-                        onChange={(e) => setNewDescription(e.target.value)}
-                        placeholder="Brush for two minutes before bed"
-                      />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Star value</FieldLabel>
-                      <FieldInput
-                        type="number"
-                        min="0"
-                        value={newStarValue}
-                        onChange={(e) => setNewStarValue(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Category icon (optional)</FieldLabel>
-                      <ChoreCategoryPicker value={newCategory} onChange={setNewCategory} />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Recurrence</FieldLabel>
-                      <FieldSelect
-                        value={newRecurrenceType}
-                        onChange={(e) => setNewRecurrenceType(e.target.value as RecurrenceType)}
-                      >
-                        <option value="one_off">One-off</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="biweekly">Every other week</option>
-                      </FieldSelect>
-                    </div>
-
-                    <div>
-                      <FieldCheckbox checked={newIsActive} onChange={setNewIsActive} label="Active chore" />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 py-3 text-sm font-semibold text-black shadow-[0_16px_35px_rgba(66,109,163,0.28)] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent)] active:translate-y-0"
-                    >
-                      Add chore
-                    </button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleUpdateChore} className="mt-6 space-y-5">
-                    <div>
-                      <FieldLabel>Kid</FieldLabel>
-                      <FieldSelect
-                        value={editingKidId}
-                        onChange={(e) => setEditingKidId(e.target.value)}
-                      >
-                        <option value="">Select a kid</option>
-                        {kids.map((kid) => (
-                          <option key={kid.id} value={kid.id}>
-                            {kid.name}
-                          </option>
-                        ))}
-                      </FieldSelect>
-                    </div>
-
-                    <div>
-                      <FieldLabel>Title</FieldLabel>
-                      <FieldInput
-                        type="text"
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Description (optional)</FieldLabel>
-                      <FieldInput
-                        type="text"
-                        value={editingDescription}
-                        onChange={(e) => setEditingDescription(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Star value</FieldLabel>
-                      <FieldInput
-                        type="number"
-                        min="0"
-                        value={editingStarValue}
-                        onChange={(e) => setEditingStarValue(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Category icon (optional)</FieldLabel>
-                      <ChoreCategoryPicker value={editingCategory} onChange={setEditingCategory} />
-                    </div>
-
-                    <div>
-                      <FieldLabel>Recurrence</FieldLabel>
-                      <FieldSelect
-                        value={editingRecurrenceType}
-                        onChange={(e) =>
-                          setEditingRecurrenceType(e.target.value as RecurrenceType)
-                        }
-                      >
-                        <option value="one_off">One-off</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="biweekly">Every other week</option>
-                      </FieldSelect>
-                    </div>
-
-                    <div>
-                      <FieldCheckbox
-                        checked={editingIsActive}
-                        onChange={setEditingIsActive}
-                        label="Active chore"
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 pt-1">
-                      <button
-                        type="submit"
-                        className="inline-flex min-h-12 items-center justify-center rounded-full bg-[var(--accent-strong)] px-5 py-3 text-sm font-semibold text-black shadow-[0_16px_35px_rgba(66,109,163,0.28)] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent)] active:translate-y-0"
-                      >
-                        Save changes
-                      </button>
-                      <button
-                        type="button"
-                        onClick={cancelEditingChore}
-                        className="inline-flex min-h-12 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-5 py-3 text-sm font-semibold text-[var(--foreground)] shadow-sm transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </section>
+                  {editingMode ? (
+                    <ChoreForm
+                      mode="edit"
+                      kids={kids}
+                      kidId={editingKidId}
+                      title={editingTitle}
+                      description={editingDescription}
+                      starValue={editingStarValue}
+                      category={editingCategory}
+                      recurrenceType={editingRecurrenceType}
+                      isActive={editingIsActive}
+                      submitLabel={
+                        savingChore ? "Saving…" : "Save changes"
+                      }
+                      onSubmit={handleUpdateChore}
+                      onKidChange={setEditingKidId}
+                      onTitleChange={setEditingTitle}
+                      onDescriptionChange={setEditingDescription}
+                      onStarValueChange={setEditingStarValue}
+                      onCategoryChange={setEditingCategory}
+                      onRecurrenceTypeChange={setEditingRecurrenceType}
+                      onActiveChange={setEditingIsActive}
+                      onCancel={cancelEditingChore}
+                      titleInputRef={choreTitleInputRef}
+                    />
+                  ) : (
+                    <ChoreForm
+                      mode="create"
+                      kids={kids}
+                      kidId={newKidId}
+                      title={newTitle}
+                      description={newDescription}
+                      starValue={newStarValue}
+                      category={newCategory}
+                      recurrenceType={newRecurrenceType}
+                      isActive={newIsActive}
+                      submitLabel={savingChore ? "Adding chore…" : "Add chore"}
+                      onSubmit={handleCreateChore}
+                      onKidChange={setNewKidId}
+                      onTitleChange={setNewTitle}
+                      onDescriptionChange={setNewDescription}
+                      onStarValueChange={setNewStarValue}
+                      onCategoryChange={setNewCategory}
+                      onRecurrenceTypeChange={setNewRecurrenceType}
+                      onActiveChange={setNewIsActive}
+                      titleInputRef={choreTitleInputRef}
+                    />
+                  )}
+                </section>
+              </div>
             </div>
-          </div>
-        </section>
-      </div>
-    </main>
+          </section>
+        </div>
+      </main>
     </>
   );
 }
