@@ -1,11 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
-import Image from "next/image";
-import logo from "@/app/components/images/logo.png";
 import AppNav from "@/app/components/AppNav";
+import logo from "@/app/components/images/logo.png";
 
 type HouseholdMemberLookup = {
   household_id: string;
@@ -32,14 +32,63 @@ const KID_COLOR_OPTIONS: {
   value: KidColor;
   label: string;
   swatch: string;
+  tile: string;
+  text: string;
 }[] = [
-  { value: "blue", label: "Blue", swatch: "bg-[#7a84ff]" },
-  { value: "orange", label: "Orange", swatch: "bg-[#ffb8a6]" },
-  { value: "green", label: "Green", swatch: "bg-[#8edfc3]" },
-  { value: "purple", label: "Purple", swatch: "bg-[#b79bff]" },
-  { value: "pink", label: "Pink", swatch: "bg-[#ff9fc0]" },
-  { value: "yellow", label: "Yellow", swatch: "bg-[#ffd76a]" },
+  {
+    value: "blue",
+    label: "Blue",
+    swatch: "bg-[#7a84ff]",
+    tile: "bg-[linear-gradient(135deg,#8fd0ff,#7a84ff)]",
+    text: "text-white",
+  },
+  {
+    value: "orange",
+    label: "Orange",
+    swatch: "bg-[#ffb8a6]",
+    tile: "bg-[linear-gradient(135deg,#ffdca8,#ffb8a6)]",
+    text: "text-[#5d3d2e]",
+  },
+  {
+    value: "green",
+    label: "Green",
+    swatch: "bg-[#8edfc3]",
+    tile: "bg-[linear-gradient(135deg,#c7f1c9,#8edfc3)]",
+    text: "text-[#1f4d44]",
+  },
+  {
+    value: "purple",
+    label: "Purple",
+    swatch: "bg-[#b79bff]",
+    tile: "bg-[linear-gradient(135deg,#d9c8ff,#b79bff)]",
+    text: "text-white",
+  },
+  {
+    value: "pink",
+    label: "Pink",
+    swatch: "bg-[#ff9fc0]",
+    tile: "bg-[linear-gradient(135deg,#ffc9e3,#ff9fc0)]",
+    text: "text-[#6b2d4a]",
+  },
+  {
+    value: "yellow",
+    label: "Yellow",
+    swatch: "bg-[#ffd76a]",
+    tile: "bg-[linear-gradient(135deg,#fff0a8,#ffd76a)]",
+    text: "text-[#5d4a10]",
+  },
 ];
+
+function getColorOption(color: KidColor | null) {
+  return (
+    KID_COLOR_OPTIONS.find((option) => option.value === color) ??
+    KID_COLOR_OPTIONS[0]
+  );
+}
+
+function getInitial(name: string, savedAvatar: string | null) {
+  return savedAvatar?.trim() || name.trim().slice(0, 1).toUpperCase() || "?";
+}
 
 function ColorPicker({
   value,
@@ -52,7 +101,7 @@ function ColorPicker({
 }) {
   return (
     <div>
-      <p className="mb-2 block text-sm font-medium text-[var(--foreground)]">
+      <p className="mb-2 text-sm font-medium text-[var(--foreground)]">
         Tile color
       </p>
 
@@ -78,75 +127,16 @@ function ColorPicker({
   );
 }
 
-function KidTile({
-  kid,
-  onEdit,
-}: {
-  kid: Kid;
-  onEdit: (kid: Kid) => void;
-}) {
-  const tileColor =
-    KID_COLOR_OPTIONS.find((option) => option.value === kid.color)?.swatch ??
-    "bg-[#7a84ff]";
-
-  return (
-    <article className="rounded-[1.75rem] border border-[var(--border-soft)] bg-white/80 p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)] transition-transform duration-200 hover:-translate-y-0.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/70 text-xl shadow-sm ${tileColor}`}
-          >
-            <span className="drop-shadow-sm">
-              {kid.avatar?.trim() || kid.name.slice(0, 1).toUpperCase()}
-            </span>
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="truncate text-lg font-semibold text-[var(--foreground)]">
-              {kid.name}
-            </h3>
-
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Level {kid.level ?? 1} · {kid.streak_days ?? 0}-day streak
-            </p>
-          </div>
-        </div>
-
-        <span className="inline-flex shrink-0 rounded-full border border-[var(--star-border)] bg-[var(--star-soft)] px-3 py-1 text-xs font-semibold text-[var(--star-text)]">
-          {kid.stars ?? 0} ★
-        </span>
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <Link
-          href={`/kids/${kid.id}/chores`}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--foreground)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[color:var(--foreground-soft)]"
-        >
-          Chores
-        </Link>
-
-        <button
-          type="button"
-          onClick={() => onEdit(kid)}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)]"
-        >
-          Edit helper
-        </button>
-      </div>
-    </article>
-  );
-}
-
 export default function DashboardPage() {
   const supabase = useMemo(() => createBrowserClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [savingKid, setSavingKid] = useState(false);
   const [deletingKidId, setDeletingKidId] = useState<string | null>(null);
+  const [restoringKidId, setRestoringKidId] = useState<string | null>(null);
   const [confirmDeleteKidId, setConfirmDeleteKidId] = useState<string | null>(
     null
   );
-  const [restoringKidId, setRestoringKidId] = useState<string | null>(null);
 
   const [pageError, setPageError] = useState("");
   const [message, setMessage] = useState("");
@@ -157,15 +147,15 @@ export default function DashboardPage() {
   const [isAddingKid, setIsAddingKid] = useState(false);
   const [editingKidId, setEditingKidId] = useState<string | null>(null);
 
-  const [kidName, setKidName] = useState("");
-  const [kidStars, setKidStars] = useState("0");
-  const [kidLevel, setKidLevel] = useState("1");
-  const [kidColor, setKidColor] = useState<KidColor>("blue");
-
   const [newKidName, setNewKidName] = useState("");
   const [newKidStars, setNewKidStars] = useState("0");
   const [newKidLevel, setNewKidLevel] = useState("1");
   const [newKidColor, setNewKidColor] = useState<KidColor>("blue");
+
+  const [kidName, setKidName] = useState("");
+  const [kidStars, setKidStars] = useState("0");
+  const [kidLevel, setKidLevel] = useState("1");
+  const [kidColor, setKidColor] = useState<KidColor>("blue");
 
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
@@ -203,18 +193,18 @@ export default function DashboardPage() {
           throw memberError;
         }
 
-        const typedMemberRow = memberRow as HouseholdMemberLookup | null;
+        const membership = memberRow as HouseholdMemberLookup | null;
 
-        if (!typedMemberRow?.household_id) {
+        if (!membership?.household_id) {
           throw new Error("No household found for this user.");
         }
 
-        setHouseholdId(typedMemberRow.household_id);
+        setHouseholdId(membership.household_id);
 
         const { data: kidRows, error: kidsError } = await supabase
           .from("kids")
           .select(`${KID_SELECT_COLUMNS}, archived_at`)
-          .eq("household_id", typedMemberRow.household_id)
+          .eq("household_id", membership.household_id)
           .is("archived_at", null)
           .order("name", { ascending: true });
 
@@ -241,9 +231,12 @@ export default function DashboardPage() {
 
         if (!cancelled) {
           setPageError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load your household dashboard."
+            typeof err === "object" &&
+              err !== null &&
+              "message" in err &&
+              typeof (err as { message?: unknown }).message === "string"
+              ? String((err as { message: string }).message)
+              : "Unable to load the Parent Dashboard."
           );
         }
       } finally {
@@ -260,6 +253,13 @@ export default function DashboardPage() {
     };
   }, [supabase]);
 
+  function resetNewKidForm() {
+    setNewKidName("");
+    setNewKidStars("0");
+    setNewKidLevel("1");
+    setNewKidColor("blue");
+  }
+
   function resetEditForm() {
     setEditingKidId(null);
     setKidName("");
@@ -267,13 +267,6 @@ export default function DashboardPage() {
     setKidLevel("1");
     setKidColor("blue");
     setConfirmDeleteKidId(null);
-  }
-
-  function resetNewKidForm() {
-    setNewKidName("");
-    setNewKidStars("0");
-    setNewKidLevel("1");
-    setNewKidColor("blue");
   }
 
   function startAddKid() {
@@ -294,6 +287,7 @@ export default function DashboardPage() {
     setMessage("");
     setIsAddingKid(false);
     setConfirmDeleteKidId(null);
+
     setEditingKidId(kid.id);
     setKidName(kid.name);
     setKidStars(String(kid.stars ?? 0));
@@ -301,77 +295,8 @@ export default function DashboardPage() {
     setKidColor(kid.color ?? "blue");
   }
 
-  async function handleEditKidSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setPageError("");
-    setMessage("");
-
-    if (!editingKidId) {
-      setPageError("No helper was selected for editing.");
-      return;
-    }
-
-    const trimmedName = kidName.trim();
-    const initial = trimmedName.slice(0, 1).toUpperCase();
-    const parsedStars = Number(kidStars);
-    const parsedLevel = Number(kidLevel);
-
-    if (!trimmedName) {
-      setPageError("Please enter the helper’s name.");
-      return;
-    }
-
-    if (!Number.isFinite(parsedStars) || parsedStars < 0) {
-      setPageError("Stars must be 0 or greater.");
-      return;
-    }
-
-    if (!Number.isFinite(parsedLevel) || parsedLevel < 1) {
-      setPageError("Level must be 1 or greater.");
-      return;
-    }
-
-    setSavingKid(true);
-
-    try {
-      const { data, error } = await supabase
-        .from("kids")
-        .update({
-          name: trimmedName,
-          avatar: initial || null,
-          stars: parsedStars,
-          level: parsedLevel,
-          color: kidColor,
-        } as never)
-        .eq("id", editingKidId)
-        .select(KID_SELECT_COLUMNS)
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const updatedKid = data as Kid;
-
-      setKids((previous) =>
-        previous
-          .map((kid) => (kid.id === updatedKid.id ? updatedKid : kid))
-          .sort((a, b) => a.name.localeCompare(b.name))
-      );
-
-      setMessage(`${updatedKid.name} was updated.`);
-      resetEditForm();
-    } catch (err: unknown) {
-      setPageError(
-        err instanceof Error ? err.message : "Unable to update helper."
-      );
-    } finally {
-      setSavingKid(false);
-    }
-  }
-
-  async function handleNewKidSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleNewKidSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setPageError("");
     setMessage("");
 
@@ -437,6 +362,75 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleEditKidSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPageError("");
+    setMessage("");
+
+    if (!editingKidId) {
+      setPageError("No helper selected for editing.");
+      return;
+    }
+
+    const trimmedName = kidName.trim();
+    const initial = trimmedName.slice(0, 1).toUpperCase();
+    const parsedStars = Number(kidStars);
+    const parsedLevel = Number(kidLevel);
+
+    if (!trimmedName) {
+      setPageError("Please enter the helper’s name.");
+      return;
+    }
+
+    if (!Number.isFinite(parsedStars) || parsedStars < 0) {
+      setPageError("Stars must be 0 or greater.");
+      return;
+    }
+
+    if (!Number.isFinite(parsedLevel) || parsedLevel < 1) {
+      setPageError("Level must be 1 or greater.");
+      return;
+    }
+
+    setSavingKid(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("kids")
+        .update({
+          name: trimmedName,
+          avatar: initial || null,
+          stars: parsedStars,
+          level: parsedLevel,
+          color: kidColor,
+        } as never)
+        .eq("id", editingKidId)
+        .select(KID_SELECT_COLUMNS)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      const updatedKid = data as Kid;
+
+      setKids((previous) =>
+        previous
+          .map((kid) => (kid.id === updatedKid.id ? updatedKid : kid))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      );
+
+      setMessage(`${updatedKid.name} was updated.`);
+      resetEditForm();
+    } catch (err: unknown) {
+      setPageError(
+        err instanceof Error ? err.message : "Unable to update helper."
+      );
+    } finally {
+      setSavingKid(false);
+    }
+  }
+
   async function handleDeleteKid(kid: Kid) {
     setPageError("");
     setMessage("");
@@ -454,7 +448,7 @@ export default function DashboardPage() {
         throw error;
       }
 
-      setKids((previous) => previous.filter((entry) => entry.id !== kid.id));
+      setKids((previous) => previous.filter((item) => item.id !== kid.id));
       setConfirmDeleteKidId(null);
 
       if (editingKidId === kid.id) {
@@ -464,7 +458,7 @@ export default function DashboardPage() {
       if (data === "deleted") {
         setMessage(`${kid.name} was deleted.`);
       } else if (data === "archived") {
-        setMessage(`${kid.name} was archived because they already have history.`);
+        setMessage(`${kid.name} was archived.`);
       } else {
         setMessage(`${kid.name} was removed.`);
       }
@@ -494,7 +488,7 @@ export default function DashboardPage() {
       const restoredKid = data as Kid;
 
       setArchivedKids((previous) =>
-        previous.filter((entry) => entry.id !== kid.id)
+        previous.filter((item) => item.id !== kid.id)
       );
 
       setKids((previous) =>
@@ -513,10 +507,12 @@ export default function DashboardPage() {
 
   async function handleCancelSubscription() {
     const confirmed = window.confirm(
-      "Are you sure you want to cancel your subscription? You will keep access until the end of the current billing period, but it will not renew."
+      "Are you sure you want to cancel your subscription? You will keep access until the end of your current billing period."
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setSubscriptionMessage("");
     setSubscriptionError("");
@@ -533,7 +529,7 @@ export default function DashboardPage() {
         throw new Error(data.error || "Unable to cancel subscription.");
       }
 
-      const periodEndDate = data.periodEnd
+      const endDate = data.periodEnd
         ? new Date(data.periodEnd).toLocaleDateString("en-US", {
             month: "long",
             day: "numeric",
@@ -542,7 +538,7 @@ export default function DashboardPage() {
         : "the end of your current billing period";
 
       setSubscriptionMessage(
-        `Your subscription is set to cancel. You will keep access until ${periodEndDate}.`
+        `Your subscription is set to cancel. You will keep access until ${endDate}.`
       );
     } catch (err: unknown) {
       setSubscriptionError(
@@ -562,7 +558,7 @@ export default function DashboardPage() {
           <div className="mx-auto max-w-6xl">
             <section className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
               <p className="text-sm text-[var(--muted)]">
-                Loading your parent dashboard…
+                Loading Parent Dashboard…
               </p>
             </section>
           </div>
@@ -579,45 +575,60 @@ export default function DashboardPage() {
         <div className="mx-auto max-w-6xl">
           <section className="relative overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(255,255,255,0.58)_36%,_transparent_68%)]" />
-            <div className="pointer-events-none absolute -left-10 top-20 h-40 w-40 rounded-full bg-[var(--blob-yellow)] blur-3xl opacity-55" />
-            <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-[var(--blob-pink)] blur-3xl opacity-45" />
+            <div className="pointer-events-none absolute -left-12 top-24 h-44 w-44 rounded-full bg-[var(--blob-yellow)] blur-3xl opacity-55" />
+            <div className="pointer-events-none absolute right-0 top-0 h-52 w-52 rounded-full bg-[var(--blob-pink)] blur-3xl opacity-45" />
+            <div className="pointer-events-none absolute bottom-0 right-20 h-40 w-40 rounded-full bg-[var(--blob-blue)] blur-3xl opacity-45" />
 
             <div className="relative p-5 sm:p-8 md:p-10">
-<div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-  <div className="max-w-2xl">
-    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-      Parent dashboard
-    </p>
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
+                    Parent Dashboard
+                  </p>
 
-    <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
-      Your household, all in one place
-    </h1>
-  </div>
+                  <h1 className="mt-3 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
+                    Your household
+                  </h1>
 
-  <div className="flex shrink-0 justify-start sm:justify-end">
-    <div className="rounded-[2rem] border border-[var(--border-soft)] bg-white/72 p-2 shadow-[0_12px_30px_rgba(33,53,85,0.10)] backdrop-blur">
-      <Image
-        src={logo}
-        alt="Mighty Helpers"
-        width={100}
-        height={100}
-        className="h-[72px] w-[72px] rounded-[1.5rem] object-cover sm:h-24 sm:w-24"
-        priority
-      />
-    </div>
-  </div>
-</div>
-              
+                  <p className="mt-3 text-sm text-[var(--muted)]">
+                    {kids.length} {kids.length === 1 ? "helper" : "helpers"}
+                  </p>
+                </div>
+
+                <Link
+                  href="/kids"
+                  className="shrink-0 rounded-[2rem] transition-transform duration-200 hover:-translate-y-1"
+                  aria-label="Open helper selection"
+                >
+                  <div className="rounded-[2rem] border border-[var(--border-soft)] bg-white/72 p-2 shadow-[0_12px_30px_rgba(33,53,85,0.10)] backdrop-blur">
+                    <Image
+                      src={logo}
+                      alt="Mighty Helpers"
+                      width={112}
+                      height={112}
+                      className="h-20 w-20 rounded-[1.5rem] object-cover sm:h-28 sm:w-28"
+                      priority
+                    />
+                  </div>
+                </Link>
+              </div>
+
               {(pageError || message) && (
                 <div className="mt-6 space-y-3">
                   {pageError && (
-                    <div className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger-text)]">
+                    <div
+                      className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger-text)]"
+                      role="alert"
+                    >
                       {pageError}
                     </div>
                   )}
 
                   {message && (
-                    <div className="rounded-2xl border border-[var(--success-border)] bg-[var(--success-soft)] px-4 py-3 text-sm text-[var(--success-text)]">
+                    <div
+                      className="rounded-2xl border border-[var(--success-border)] bg-[var(--success-soft)] px-4 py-3 text-sm text-[var(--success-text)]"
+                      role="status"
+                    >
                       {message}
                     </div>
                   )}
@@ -626,96 +637,89 @@ export default function DashboardPage() {
 
               {!pageError && (
                 <>
-                  <section className="mt-8">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    </div>
-
-                    <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                      <article className="rounded-[1.75rem] bg-[var(--accent)] p-6 text-white shadow-[0_16px_36px_rgba(15,118,110,0.24)]">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/18 text-2xl">
+                  <section className="mt-8 grid gap-4 md:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={startAddKid}
+                      className="group rounded-[1.75rem] bg-[var(--accent)] p-6 text-left text-white shadow-[0_16px_36px_rgba(15,118,110,0.25)] transition-transform duration-200 hover:-translate-y-1 hover:bg-[var(--accent-hover)]"
+                    >
+                      <div className="flex items-start justify-between">
+                        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/18 text-4xl font-light">
                           +
-                        </div>
+                        </span>
 
-                        <h3 className="mt-5 text-xl font-semibold">
-                          Add a helper
-                        </h3>
+                        <span className="text-2xl text-white/70 transition-transform duration-200 group-hover:translate-x-1">
+                          →
+                        </span>
+                      </div>
 
-                        <p className="mt-2 text-sm leading-6 text-white/82">
-                          Create a child profile so they can select themselves,
-                          see chores, and earn stars.
-                        </p>
+                      <h2 className="mt-7 text-2xl font-semibold">
+                        Add helper
+                      </h2>
 
-                        <button
-                          type="button"
-                          onClick={startAddKid}
-                          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-white px-5 py-2 text-sm font-semibold text-[var(--accent)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-white/92"
-                        >
-                          Add helper
-                        </button>
-                      </article>
+                      <p className="mt-2 text-sm font-medium text-white/80">
+                        Create a new profile
+                      </p>
+                    </button>
 
-                      <Link
-                        href="/chores"
-                        className="group rounded-[1.75rem] border border-[var(--border-soft)] bg-white/82 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:shadow-[0_16px_36px_rgba(33,53,85,0.10)]"
-                      >
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--star-soft)] text-2xl">
+                    <Link
+                      href="/chores"
+                      className="group rounded-[1.75rem] border border-[rgba(83,140,104,0.20)] bg-[linear-gradient(135deg,_rgba(236,250,240,0.98)_0%,_rgba(207,241,217,0.96)_100%)] p-6 shadow-[0_14px_30px_rgba(80,140,100,0.10)] transition-transform duration-200 hover:-translate-y-1"
+                    >
+                      <div className="flex items-start justify-between">
+                        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/62 text-3xl text-[#35684a] shadow-sm">
                           ✓
-                        </div>
-
-                        <h3 className="mt-5 text-xl font-semibold text-[var(--foreground)]">
-                          Create chores
-                        </h3>
-
-                        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                          Add tasks, assign them to helpers, and decide how
-                          many stars each chore earns.
-                        </p>
-
-                        <span className="mt-6 inline-flex text-sm font-semibold text-[var(--accent)] transition-transform group-hover:translate-x-1">
-                          Manage chores →
                         </span>
-                      </Link>
 
-                      <Link
-                        href="/rewards"
-                        className="group rounded-[1.75rem] border border-[var(--border-soft)] bg-white/82 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:shadow-[0_16px_36px_rgba(33,53,85,0.10)]"
-                      >
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(164,140,255,0.14)] text-2xl">
+                        <span className="text-2xl text-[#35684a] transition-transform duration-200 group-hover:translate-x-1">
+                          →
+                        </span>
+                      </div>
+
+                      <h2 className="mt-7 text-2xl font-semibold text-[#234034]">
+                        Chores
+                      </h2>
+
+                      <p className="mt-2 text-sm font-medium text-[#4f7c5f]">
+                        Create and manage tasks
+                      </p>
+                    </Link>
+
+                    <Link
+                      href="/rewards"
+                      className="group rounded-[1.75rem] border border-[var(--star-border)] bg-[linear-gradient(135deg,_#fff9e2_0%,_#ffe7a8_100%)] p-6 shadow-[0_14px_30px_rgba(138,90,0,0.12)] transition-transform duration-200 hover:-translate-y-1"
+                    >
+                      <div className="flex items-start justify-between">
+                        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/62 text-3xl text-[var(--star-text)] shadow-sm">
                           ★
-                        </div>
-
-                        <h3 className="mt-5 text-xl font-semibold text-[var(--foreground)]">
-                          Create rewards
-                        </h3>
-
-                        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                          Add rewards your family cares about and set the star
-                          cost for each one.
-                        </p>
-
-                        <span className="mt-6 inline-flex text-sm font-semibold text-[var(--accent)] transition-transform group-hover:translate-x-1">
-                          Manage rewards →
                         </span>
-                      </Link>
-                    </div>
+
+                        <span className="text-2xl text-[var(--star-text)] transition-transform duration-200 group-hover:translate-x-1">
+                          →
+                        </span>
+                      </div>
+
+                      <h2 className="mt-7 text-2xl font-semibold text-[var(--foreground)]">
+                        Rewards
+                      </h2>
+
+                      <p className="mt-2 text-sm font-medium text-[var(--star-text)]">
+                        Create and manage rewards
+                      </p>
+                    </Link>
                   </section>
 
                   {isAddingKid && (
                     <section className="mt-6 rounded-[1.75rem] border border-[var(--accent)] bg-[var(--accent-soft)] p-5 shadow-sm sm:p-6">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent-strong)]">
                             New helper
                           </p>
 
                           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                            Add a child profile
+                            Add a helper
                           </h2>
-
-                          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                            They can choose their profile from the kid screen
-                            without needing an email address or password.
-                          </p>
                         </div>
 
                         <button
@@ -747,7 +751,7 @@ export default function DashboardPage() {
                             onChange={(event) =>
                               setNewKidName(event.target.value)
                             }
-                            placeholder="Enter helper name"
+                            placeholder="Maya"
                             className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]"
                           />
                         </div>
@@ -758,7 +762,7 @@ export default function DashboardPage() {
                               htmlFor="new-kid-stars"
                               className="mb-2 block text-sm font-medium text-[var(--foreground)]"
                             >
-                              Starting stars
+                              Stars
                             </label>
 
                             <input
@@ -778,7 +782,7 @@ export default function DashboardPage() {
                               htmlFor="new-kid-level"
                               className="mb-2 block text-sm font-medium text-[var(--foreground)]"
                             >
-                              Starting level
+                              Level
                             </label>
 
                             <input
@@ -806,7 +810,7 @@ export default function DashboardPage() {
                             disabled={savingKid}
                             className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,118,110,0.25)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {savingKid ? "Adding helper…" : "Add helper"}
+                            {savingKid ? "Adding…" : "Add helper"}
                           </button>
                         </div>
                       </form>
@@ -814,28 +818,32 @@ export default function DashboardPage() {
                   )}
 
                   <section className="mt-10">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
+                          Helpers
+                        </p>
+
                         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                          Active helper profiles
+                          Your household
                         </h2>
                       </div>
 
-                      <div className="inline-flex w-fit rounded-full border border-[var(--border-soft)] bg-white/80 px-4 py-2 text-xs font-semibold text-[var(--muted-strong)]">
-                        {kids.length} active{" "}
-                        {kids.length === 1 ? "helper" : "helpers"}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={startAddKid}
+                        className="inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--accent)] bg-white px-4 py-2 text-sm font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent-soft)]"
+                      >
+                        + Add helper
+                      </button>
                     </div>
 
                     {kids.length === 0 ? (
                       <div className="mt-5 rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--panel-muted)] p-8 text-center">
-                        <p className="text-lg font-semibold text-[var(--foreground)]">
-                          Add your first helper to get started.
-                        </p>
+                        <span className="text-5xl">👋</span>
 
-                        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">
-                          Create a profile, then add chores and rewards that
-                          fit your household.
+                        <p className="mt-4 text-lg font-semibold text-[var(--foreground)]">
+                          Add your first helper
                         </p>
 
                         <button
@@ -843,185 +851,222 @@ export default function DashboardPage() {
                           onClick={startAddKid}
                           className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
                         >
-                          Add a helper
+                          Add helper
                         </button>
                       </div>
                     ) : (
-                      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {kids.map((kid) => {
                           const isEditing = editingKidId === kid.id;
                           const isDeleting = deletingKidId === kid.id;
                           const isConfirmingDelete =
                             confirmDeleteKidId === kid.id;
+                          const color = getColorOption(kid.color);
 
-                          if (!isEditing) {
+                          if (isEditing) {
                             return (
-                              <KidTile
+                              <article
                                 key={kid.id}
-                                kid={kid}
-                                onEdit={startEditKid}
-                              />
+                                className="rounded-[1.75rem] border border-[var(--accent)] bg-[var(--accent-soft)] p-5 shadow-sm"
+                              >
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)]">
+                                  Edit helper
+                                </p>
+
+                                <form
+                                  onSubmit={handleEditKidSubmit}
+                                  className="mt-5 space-y-4"
+                                >
+                                  <div>
+                                    <label
+                                      htmlFor={`kid-name-${kid.id}`}
+                                      className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+                                    >
+                                      Name
+                                    </label>
+
+                                    <input
+                                      id={`kid-name-${kid.id}`}
+                                      type="text"
+                                      value={kidName}
+                                      onChange={(event) =>
+                                        setKidName(event.target.value)
+                                      }
+                                      className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+                                    />
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label
+                                        htmlFor={`kid-stars-${kid.id}`}
+                                        className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+                                      >
+                                        Stars
+                                      </label>
+
+                                      <input
+                                        id={`kid-stars-${kid.id}`}
+                                        type="number"
+                                        min="0"
+                                        value={kidStars}
+                                        onChange={(event) =>
+                                          setKidStars(event.target.value)
+                                        }
+                                        className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label
+                                        htmlFor={`kid-level-${kid.id}`}
+                                        className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+                                      >
+                                        Level
+                                      </label>
+
+                                      <input
+                                        id={`kid-level-${kid.id}`}
+                                        type="number"
+                                        min="1"
+                                        value={kidLevel}
+                                        onChange={(event) =>
+                                          setKidLevel(event.target.value)
+                                        }
+                                        className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="rounded-2xl border border-[var(--border-soft)] bg-white/70 px-4 py-3 text-sm text-[var(--muted)]">
+                                    Initial:{" "}
+                                    <span className="font-semibold text-[var(--foreground)]">
+                                      {kidName.trim().slice(0, 1).toUpperCase() ||
+                                        "—"}
+                                    </span>
+                                  </div>
+
+                                  <ColorPicker
+                                    value={kidColor}
+                                    onChange={setKidColor}
+                                    idPrefix={`edit-${kid.id}`}
+                                  />
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      type="submit"
+                                      disabled={savingKid}
+                                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {savingKid ? "Saving…" : "Save"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={resetEditForm}
+                                      disabled={savingKid}
+                                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+
+                                  {isConfirmingDelete ? (
+                                    <div className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-4">
+                                      <p className="text-sm font-medium text-[var(--danger-text)]">
+                                        Remove {kid.name}?
+                                      </p>
+
+                                      <p className="mt-1 text-xs leading-5 text-[var(--danger-text)]">
+                                        Profiles with history are archived.
+                                      </p>
+
+                                      <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setConfirmDeleteKidId(null)
+                                          }
+                                          disabled={isDeleting}
+                                          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)]"
+                                        >
+                                          Keep
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void handleDeleteKid(kid)
+                                          }
+                                          disabled={isDeleting}
+                                          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--danger-button)] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          {isDeleting ? "Removing…" : "Remove"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setConfirmDeleteKidId(kid.id)
+                                      }
+                                      disabled={savingKid || isDeleting}
+                                      className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-[var(--danger-border)] bg-transparent px-3 py-2 text-sm font-medium text-[var(--danger-text)] transition-colors hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      Remove helper
+                                    </button>
+                                  )}
+                                </form>
+                              </article>
                             );
                           }
 
                           return (
                             <article
                               key={kid.id}
-                              className="rounded-[1.75rem] border border-[var(--accent)] bg-[var(--accent-soft)] p-5 shadow-[0_12px_30px_rgba(15,118,110,0.10)]"
+                              className="overflow-hidden rounded-[1.75rem] border border-[var(--border-soft)] bg-white/84 shadow-[0_12px_30px_rgba(31,41,55,0.06)]"
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-strong)]">
-                                    Editing helper
-                                  </p>
+                              <div
+                                className={`flex items-center gap-4 p-5 ${color.tile} ${color.text}`}
+                              >
+                                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.35rem] bg-white/25 text-3xl font-bold shadow-sm backdrop-blur">
+                                  {getInitial(kid.name, kid.avatar)}
+                                </div>
 
-                                  <h3 className="mt-2 text-xl font-semibold text-[var(--foreground)]">
+                                <div className="min-w-0">
+                                  <h3 className="truncate text-2xl font-semibold tracking-tight">
                                     {kid.name}
                                   </h3>
-                                </div>
 
-                                <span className="inline-flex rounded-full border border-[var(--star-border)] bg-[var(--star-soft)] px-3 py-1 text-xs font-semibold text-[var(--star-text)]">
-                                  {kid.stars ?? 0} ★
-                                </span>
+                                  <p className="mt-1 text-sm font-medium opacity-80">
+                                    Level {kid.level ?? 1}
+                                  </p>
+                                </div>
                               </div>
 
-                              <form
-                                onSubmit={handleEditKidSubmit}
-                                className="mt-5 space-y-4"
-                              >
-                                <div>
-                                  <label
-                                    htmlFor={`kid-name-${kid.id}`}
-                                    className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+                              <div className="flex items-center justify-between gap-3 p-4">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--star-border)] bg-[var(--star-soft)] px-3 py-1.5 text-sm font-semibold text-[var(--star-text)]">
+                                  ★ {kid.stars ?? 0}
+                                </span>
+
+                                <div className="flex gap-2">
+                                  <Link
+                                    href={`/kids/${kid.id}/chores`}
+                                    className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
                                   >
-                                    Helper name
-                                  </label>
-
-                                  <input
-                                    id={`kid-name-${kid.id}`}
-                                    type="text"
-                                    value={kidName}
-                                    onChange={(event) =>
-                                      setKidName(event.target.value)
-                                    }
-                                    className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
-                                  />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label
-                                      htmlFor={`kid-stars-${kid.id}`}
-                                      className="mb-2 block text-sm font-medium text-[var(--foreground)]"
-                                    >
-                                      Stars
-                                    </label>
-
-                                    <input
-                                      id={`kid-stars-${kid.id}`}
-                                      type="number"
-                                      min="0"
-                                      value={kidStars}
-                                      onChange={(event) =>
-                                        setKidStars(event.target.value)
-                                      }
-                                      className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label
-                                      htmlFor={`kid-level-${kid.id}`}
-                                      className="mb-2 block text-sm font-medium text-[var(--foreground)]"
-                                    >
-                                      Level
-                                    </label>
-
-                                    <input
-                                      id={`kid-level-${kid.id}`}
-                                      type="number"
-                                      min="1"
-                                      value={kidLevel}
-                                      onChange={(event) =>
-                                        setKidLevel(event.target.value)
-                                      }
-                                      className="w-full rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
-                                    />
-                                  </div>
-                                </div>
-
-                                <ColorPicker
-                                  value={kidColor}
-                                  onChange={setKidColor}
-                                  idPrefix={`edit-${kid.id}`}
-                                />
-
-                                <div className="grid grid-cols-2 gap-2">
-                                  <button
-                                    type="submit"
-                                    disabled={savingKid}
-                                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {savingKid ? "Saving…" : "Save"}
-                                  </button>
+                                    Chores
+                                  </Link>
 
                                   <button
                                     type="button"
-                                    onClick={resetEditForm}
-                                    disabled={savingKid}
-                                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                                    onClick={() => startEditKid(kid)}
+                                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)]"
                                   >
-                                    Cancel
+                                    Edit
                                   </button>
                                 </div>
-
-                                {isConfirmingDelete ? (
-                                  <div className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-4">
-                                    <p className="text-xs leading-5 text-[var(--danger-text)]">
-                                      Empty profiles are deleted. Profiles with
-                                      chore or reward history are archived so
-                                      their history is preserved.
-                                    </p>
-
-                                    <div className="mt-3 grid grid-cols-2 gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setConfirmDeleteKidId(null)
-                                        }
-                                        disabled={isDeleting}
-                                        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-3 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        Keep helper
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          void handleDeleteKid(kid)
-                                        }
-                                        disabled={isDeleting}
-                                        className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[var(--danger-button)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--danger-button-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        {isDeleting
-                                          ? "Removing…"
-                                          : "Confirm remove"}
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setConfirmDeleteKidId(kid.id)
-                                    }
-                                    disabled={savingKid || isDeleting}
-                                    className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-[var(--danger-border)] bg-transparent px-3 py-2 text-sm font-medium text-[var(--danger-text)] transition-colors hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    Remove helper
-                                  </button>
-                                )}
-                              </form>
+                              </div>
                             </article>
                           );
                         })}
@@ -1032,99 +1077,54 @@ export default function DashboardPage() {
                   <section className="mt-8">
                     <details className="rounded-[1.5rem] border border-[var(--border-soft)] bg-white/70 p-5 shadow-sm">
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-semibold text-[var(--foreground)]">
-                            Archived helpers ({archivedKids.length})
-                          </p>
+                        <span className="text-sm font-semibold text-[var(--foreground)]">
+                          Archived helpers ({archivedKids.length})
+                        </span>
 
-                          <p className="mt-1 text-sm text-[var(--muted)]">
-                            Archived profiles keep history and can be restored
-                            whenever needed.
-                          </p>
-                        </div>
-
-                        <span className="text-lg text-[var(--muted)]">⌄</span>
+                        <span className="text-xl text-[var(--muted)]">⌄</span>
                       </summary>
 
-                      <div className="mt-5">
-                        {archivedKids.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--panel-muted)] px-5 py-6 text-sm text-[var(--muted)]">
-                            No archived helpers.
-                          </div>
-                        ) : (
-                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                            {archivedKids.map((kid) => (
-                              <article
-                                key={kid.id}
-                                className="rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-muted)] p-5"
+                      {archivedKids.length === 0 ? (
+                        <p className="mt-4 text-sm text-[var(--muted)]">
+                          No archived helpers.
+                        </p>
+                      ) : (
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                          {archivedKids.map((kid) => (
+                            <article
+                              key={kid.id}
+                              className="rounded-[1.5rem] border border-[var(--border-soft)] bg-[var(--panel-muted)] p-4"
+                            >
+                              <p className="text-lg font-semibold text-[var(--foreground)]">
+                                {kid.name}
+                              </p>
+
+                              <p className="mt-1 text-sm text-[var(--muted)]">
+                                Level {kid.level ?? 1} · {kid.stars ?? 0} stars
+                              </p>
+
+                              <button
+                                type="button"
+                                onClick={() => void handleRestoreKid(kid)}
+                                disabled={restoringKidId === kid.id}
+                                className="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                               >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                                      {kid.name}
-                                    </h3>
-
-                                    <p className="mt-1 text-sm text-[var(--muted)]">
-                                      Archived helper profile
-                                    </p>
-                                  </div>
-
-                                  <span className="rounded-full border border-[var(--border-strong)] bg-white px-3 py-1 text-xs font-medium text-[var(--muted-strong)]">
-                                    Archived
-                                  </span>
-                                </div>
-
-                                <div className="mt-4 grid grid-cols-2 gap-3">
-                                  <div className="rounded-xl border border-[var(--border-soft)] bg-white px-4 py-3">
-                                    <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-strong)]">
-                                      Level
-                                    </p>
-
-                                    <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-                                      {kid.level ?? 1}
-                                    </p>
-                                  </div>
-
-                                  <div className="rounded-xl border border-[var(--border-soft)] bg-white px-4 py-3">
-                                    <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-strong)]">
-                                      Streak
-                                    </p>
-
-                                    <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-                                      {kid.streak_days ?? 0} days
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() => void handleRestoreKid(kid)}
-                                  disabled={restoringKidId === kid.id}
-                                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {restoringKidId === kid.id
-                                    ? "Restoring…"
-                                    : "Restore helper"}
-                                </button>
-                              </article>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                                {restoringKidId === kid.id
+                                  ? "Restoring…"
+                                  : "Restore"}
+                              </button>
+                            </article>
+                          ))}
+                        </div>
+                      )}
                     </details>
                   </section>
 
                   <section className="mt-8 border-t border-[var(--border-soft)] pt-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--foreground)]">
-                          Subscription
-                        </p>
-
-                        <p className="mt-1 text-sm text-[var(--muted)]">
-                          Manage your Mighty Helpers membership.
-                        </p>
-                      </div>
+                      <p className="text-sm font-medium text-[var(--muted)]">
+                        Subscription
+                      </p>
 
                       <button
                         type="button"
