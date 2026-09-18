@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/app/components/images/logo.png";
-import AppNav from "@/app/components/AppNav";
 
 const faqs = [
   {
@@ -44,8 +43,6 @@ const faqs = [
 
 export default function HelpPage() {
   return (
-        <>
-          <AppNav />
     <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-5xl">
         <header className="flex items-center justify-between gap-4 py-2">
@@ -86,7 +83,7 @@ export default function HelpPage() {
             <div className="mx-auto mt-12 max-w-3xl rounded-[1.65rem] border border-[var(--border-soft)] bg-[rgba(245,251,248,0.86)] p-6 text-center shadow-sm">
               <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Still need a hand?</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--muted)]">For account, billing, or household questions that are not covered here, contact the Mighty Helpers team.</p>
-              <a href="mailto:support@kofelabs.com?subject=Mighty%20Helpers%20Support" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(15,118,110,0.22)] hover:bg-[var(--accent-hover)]">Email support</a>
+              <a href="mailto:hello@kofelabs.com?subject=Mighty%20Helpers%20Support" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(15,118,110,0.22)] hover:bg-[var(--accent-hover)]">Email support</a>
             </div>
           </div>
         </section>
@@ -101,6 +98,5 @@ export default function HelpPage() {
         </footer>
       </div>
     </main>
-    </>
   );
 }
