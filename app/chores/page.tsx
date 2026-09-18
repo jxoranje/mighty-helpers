@@ -879,7 +879,7 @@ export default function ChoresPage() {
 
                   <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">
                     Create clear and exciting tasks, assign them to your helpers, and set the
-                    stars each chore earns. You create a chore for each kid, as a chore can be different from helper to helper: daily, or not, or more stars. 
+                    stars each chore earns. You create a chore for each helper, because a chore can be different from helper to helper: daily, or not, or more stars. 
                   </p>
                 </div>
 
