@@ -818,11 +818,11 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
-                          Helpers
+                          Manage Helpers
                         </p>
 
                         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                          Your household
+                          Your household's Mighty Helpers
                         </h2>
                       </div>
 
