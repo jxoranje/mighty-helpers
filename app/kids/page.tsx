@@ -191,12 +191,6 @@ export default function KidsPage() {
 
             <div className="relative p-5 sm:p-8 md:p-10">
               <div className="flex items-center justify-between gap-4">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-                >
-                  Parent dashboard
-                </Link>
 
                 <Image
                   src={logo}
