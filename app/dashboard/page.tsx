@@ -592,11 +592,6 @@ export default function DashboardPage() {
     <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
       Your household, all in one place
     </h1>
-
-    <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
-      Here is where you add or change helpers, create chores and rewards, and keep your household routine
-      running smoothly.
-    </p>
   </div>
 
   <div className="flex shrink-0 justify-start sm:justify-end">
@@ -633,19 +628,6 @@ export default function DashboardPage() {
                 <>
                   <section className="mt-8">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
-                          Quick actions
-                        </p>
-
-                        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                          Update your household
-                        </h2>
-                      </div>
-
-                      <p className="text-sm text-[var(--muted)]">
-                        Choose what you would like to do next.
-                      </p>
                     </div>
 
                     <div className="mt-5 grid gap-4 lg:grid-cols-3">
@@ -834,17 +816,9 @@ export default function DashboardPage() {
                   <section className="mt-10">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
-                          Your helpers
-                        </p>
-
                         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
                           Active helper profiles
                         </h2>
-
-                        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                          Edit profiles or jump directly into a helper’s chores.
-                        </p>
                       </div>
 
                       <div className="inline-flex w-fit rounded-full border border-[var(--border-soft)] bg-white/80 px-4 py-2 text-xs font-semibold text-[var(--muted-strong)]">
