@@ -1,12 +1,16 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase/client";
+import { CHORE_CATEGORY_LIST } from "@/lib/chore-categories";
 import AppNav from "@/app/components/AppNav";
 
 type RecurrenceType = "one_off" | "daily" | "weekly" | "biweekly";
+
+type KidColor = "blue" | "orange" | "green" | "purple" | "pink" | "yellow";
 
 type KidRow = {
   id: string;
@@ -14,6 +18,7 @@ type KidRow = {
   household_id: string;
   stars: number | null;
   level: number | null;
+  color: KidColor | null;
 };
 
 type ChoreRelation =
@@ -21,11 +26,13 @@ type ChoreRelation =
       title?: string;
       recurrence_type?: RecurrenceType;
       star_value?: number | null;
+      category?: string | null;
     }
   | {
       title?: string;
       recurrence_type?: RecurrenceType;
       star_value?: number | null;
+      category?: string | null;
     }[]
   | null;
 
@@ -36,7 +43,6 @@ type AssignmentRow = {
   chore_id: string;
   status: string;
   assigned_for_date: string | null;
-  notes: string | null;
   chores: ChoreRelation;
 };
 
@@ -45,9 +51,9 @@ type ChoreRow = {
   household_id: string;
   kid_id: string | null;
   title: string;
-  description: string | null;
   recurrence_type: RecurrenceType;
   star_value: number | null;
+  category: string | null;
   is_active: boolean;
 };
 
@@ -59,9 +65,8 @@ type KidChoreItem = {
   recurrence_type: RecurrenceType | null;
   status: "assigned" | "completed" | "recurring";
   assigned_for_date: string | null;
-  notes: string | null;
-  description?: string | null;
   star_value: number;
+  category: string | null;
 };
 
 type CompleteKidChoreResult = {
@@ -73,22 +78,79 @@ type CompleteKidChoreResult = {
   assigned_for_date: string | null;
 };
 
-/*
- * Local-device "today" as YYYY-MM-DD.
- *
- * This determines only what the child-facing UI displays. Your database
- * function, complete_kid_chore(), remains the source of truth for duplicate
- * protection and household-time-zone logic.
- */
+type HeroStyle = {
+  background: string;
+  text: string;
+  softText: string;
+  chip: string;
+  button: string;
+};
+
+const HERO_STYLES: Record<KidColor, HeroStyle> = {
+  blue: {
+    background: "bg-[linear-gradient(135deg,#8fd0ff_0%,#7a84ff_100%)]",
+    text: "text-white",
+    softText: "text-white/85",
+    chip: "bg-white/18 text-white",
+    button: "bg-white text-[#5160bf] hover:bg-white/90",
+  },
+  orange: {
+    background: "bg-[linear-gradient(135deg,#ffdca8_0%,#ffb8a6_100%)]",
+    text: "text-[#5d3d2e]",
+    softText: "text-[#704c3d]",
+    chip: "bg-white/55 text-[#6b4839]",
+    button: "bg-white text-[#a75f4a] hover:bg-white/90",
+  },
+  green: {
+    background: "bg-[linear-gradient(135deg,#c7f1c9_0%,#8edfc3_100%)]",
+    text: "text-[#1f4d44]",
+    softText: "text-[#35665a]",
+    chip: "bg-white/55 text-[#27584c]",
+    button: "bg-white text-[#167b70] hover:bg-white/90",
+  },
+  purple: {
+    background: "bg-[linear-gradient(135deg,#d9c8ff_0%,#b79bff_100%)]",
+    text: "text-white",
+    softText: "text-white/85",
+    chip: "bg-white/18 text-white",
+    button: "bg-white text-[#7457bf] hover:bg-white/90",
+  },
+  pink: {
+    background: "bg-[linear-gradient(135deg,#ffc9e3_0%,#ff9fc0_100%)]",
+    text: "text-[#6b2d4a]",
+    softText: "text-[#81425d]",
+    chip: "bg-white/55 text-[#7a3a56]",
+    button: "bg-white text-[#b34870] hover:bg-white/90",
+  },
+  yellow: {
+    background: "bg-[linear-gradient(135deg,#fff0a8_0%,#ffd76a_100%)]",
+    text: "text-[#5d4a10]",
+    softText: "text-[#705d1f]",
+    chip: "bg-white/55 text-[#6b551a]",
+    button: "bg-white text-[#927116] hover:bg-white/90",
+  },
+};
+
+const FALLBACK_COLOR_ORDER: KidColor[] = [
+  "blue",
+  "orange",
+  "green",
+  "purple",
+  "pink",
+  "yellow",
+];
+
 function getTodayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
 function getChoreField(
   relation: ChoreRelation,
-  field: "title" | "recurrence_type" | "star_value"
+  field: "title" | "recurrence_type" | "star_value" | "category"
 ) {
-  if (!relation) return null;
+  if (!relation) {
+    return null;
+  }
 
   const record = Array.isArray(relation) ? relation[0] : relation;
   const value = record?.[field];
@@ -114,8 +176,8 @@ function normalizeAssignment(row: AssignmentRow): KidChoreItem {
     recurrence_type: recurrenceType || null,
     status: row.status === "approved" ? "completed" : "assigned",
     assigned_for_date: row.assigned_for_date,
-    notes: row.notes,
     star_value: (getChoreField(row.chores, "star_value") as number) || 0,
+    category: (getChoreField(row.chores, "category") as string) || null,
   };
 }
 
@@ -128,50 +190,46 @@ function normalizeRecurringChore(row: ChoreRow): KidChoreItem {
     recurrence_type: row.recurrence_type,
     status: "recurring",
     assigned_for_date: null,
-    notes: null,
-    description: row.description,
     star_value: row.star_value ?? 0,
+    category: row.category,
   };
 }
 
-function getStatusStyles(status: KidChoreItem["status"]) {
-  switch (status) {
-    case "completed":
-      return "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]";
-    case "recurring":
-      return "border-[var(--border-strong)] bg-white/80 text-[var(--foreground-soft)]";
-    default:
-      return "border-[var(--star-border)] bg-[var(--star-soft)] text-[var(--star-text)]";
-  }
+function StarIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M12 2.8l2.63 5.33 5.88.86-4.26 4.15 1.01 5.86L12 16.23 6.74 19l1.01-5.86-4.26-4.15 5.88-.86L12 2.8z" />
+    </svg>
+  );
 }
 
-function getStatusLabel(item: KidChoreItem) {
-  if (item.status === "completed") {
-    return item.recurrence_type === "one_off"
-      ? "Completed"
-      : "Completed today";
+function getChoreIcon(category: string | null) {
+  if (!category) {
+    return null;
   }
 
-  if (item.status === "recurring") {
-    return "Available today";
-  }
-
-  return "Assigned";
+  return CHORE_CATEGORY_LIST.find((item) => item.key === category) ?? null;
 }
 
-function getRecurrenceLabel(recurrenceType: RecurrenceType | null) {
-  switch (recurrenceType) {
-    case "daily":
-      return "Daily";
-    case "weekly":
-      return "Weekly";
-    case "biweekly":
-      return "Every other week";
-    case "one_off":
-      return "One-off";
-    default:
-      return "Unknown";
+function getHeroStyle(kid: KidRow): HeroStyle {
+  if (kid.color) {
+    return HERO_STYLES[kid.color];
   }
+
+  const nameValue = kid.name
+    .trim()
+    .split("")
+    .reduce((total, character) => total + character.charCodeAt(0), 0);
+
+  const color =
+    FALLBACK_COLOR_ORDER[nameValue % FALLBACK_COLOR_ORDER.length];
+
+  return HERO_STYLES[color];
 }
 
 export default function KidChoresPage() {
@@ -182,21 +240,12 @@ export default function KidChoresPage() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [message, setMessage] = useState("");
-
-  /*
-   * Stores errors by the individual chore-card ID. This lets a child see
-   * an error directly where they pressed the completion button.
-   */
-  const [completionErrors, setCompletionErrors] = useState<
-    Record<string, string>
-  >({});
-
   const [kid, setKid] = useState<KidRow | null>(null);
   const [choreItems, setChoreItems] = useState<KidChoreItem[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [confirmingItemId, setConfirmingItemId] = useState<string | null>(
-    null
-  );
+  const [completionErrors, setCompletionErrors] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     let cancelled = false;
@@ -214,7 +263,7 @@ export default function KidChoresPage() {
 
         const { data: kidRow, error: kidError } = await supabase
           .from("kids")
-          .select("id, name, household_id, stars, level")
+          .select("id, name, household_id, stars, level, color")
           .eq("id", kidId)
           .maybeSingle();
 
@@ -241,11 +290,11 @@ export default function KidChoresPage() {
                 chore_id,
                 status,
                 assigned_for_date,
-                notes,
                 chores!chore_assignments_chore_id_fkey(
                   title,
                   recurrence_type,
-                  star_value
+                  star_value,
+                  category
                 )
               `
             )
@@ -265,7 +314,7 @@ export default function KidChoresPage() {
         const { data: recurringRows, error: recurringError } = await supabase
           .from("chores")
           .select(
-            "id, household_id, kid_id, title, description, recurrence_type, star_value, is_active"
+            "id, household_id, kid_id, title, recurrence_type, star_value, category, is_active"
           )
           .eq("kid_id", kidId)
           .eq("is_active", true)
@@ -284,11 +333,6 @@ export default function KidChoresPage() {
 
         const todayIso = getTodayIso();
 
-        /*
-         * Completed recurring chores remain visible only for today. That lets
-         * the card show a clear completion state today, then lets its recurring
-         * template return as available on a future day.
-         */
         const visibleAssignments = normalizedAssignments.filter((item) => {
           if (item.status === "assigned") {
             return true;
@@ -315,10 +359,6 @@ export default function KidChoresPage() {
             .map((item) => item.chore_id)
         );
 
-        /*
-         * A recurring chore is hidden from the “available” templates only
-         * while its completed assignment is visible today.
-         */
         const normalizedRecurring = ((recurringRows as ChoreRow[]) || [])
           .filter((row) => !choresCompletedTodayIds.has(row.id))
           .map(normalizeRecurringChore);
@@ -352,36 +392,13 @@ export default function KidChoresPage() {
     };
   }, [kidId, supabase]);
 
-  function startChoreConfirmation(item: KidChoreItem) {
-    if (item.status === "completed") {
-      return;
-    }
-
-    setPageError("");
-    setMessage("");
-
-    setCompletionErrors((previous) => {
-      const next = { ...previous };
-      delete next[item.id];
-      return next;
-    });
-
-    setConfirmingItemId(item.id);
-  }
-
-  function cancelChoreConfirmation() {
-    setConfirmingItemId(null);
-  }
-
   async function completeChore(item: KidChoreItem) {
-    if (!kid) {
-      setPageError("Helper profile not loaded.");
+    if (!kid || item.status === "completed" || updatingId !== null) {
       return;
     }
 
-    if (item.status === "completed") {
-      return;
-    }
+    setPageError("");
+    setMessage("");
 
     setCompletionErrors((previous) => {
       const next = { ...previous };
@@ -389,8 +406,6 @@ export default function KidChoresPage() {
       return next;
     });
 
-    setPageError("");
-    setMessage("");
     setUpdatingId(item.id);
 
     try {
@@ -418,10 +433,6 @@ export default function KidChoresPage() {
         current ? { ...current, stars: result.stars } : current
       );
 
-      /*
-       * Immediately convert the active chore to a completed assignment card.
-       * The disabled completed UI appears without waiting for a page reload.
-       */
       setChoreItems((previous) =>
         previous.map((entry) =>
           entry.id === item.id
@@ -436,12 +447,10 @@ export default function KidChoresPage() {
         )
       );
 
-      setConfirmingItemId(null);
-
       setMessage(
-        `Awesome job! You earned ${result.stars_earned} ${
+        `You earned ${result.stars_earned} ${
           result.stars_earned === 1 ? "star" : "stars"
-        } for "${item.title}".`
+        }!`
       );
     } catch (err: unknown) {
       console.error("complete_kid_chore failed", err);
@@ -458,11 +467,6 @@ export default function KidChoresPage() {
         finalMessage.toLowerCase().includes("already been completed") ||
         finalMessage.toLowerCase().includes("already completed");
 
-      /*
-       * The database is the source of truth. If it says this chore has
-       * already been completed for the current period, reflect that state
-       * immediately in the UI rather than leaving a usable completion button.
-       */
       if (alreadyCompleted) {
         setChoreItems((previous) =>
           previous.map((entry) =>
@@ -477,19 +481,9 @@ export default function KidChoresPage() {
           )
         );
 
-        setConfirmingItemId(null);
-
-        setCompletionErrors((previous) => {
-          const next = { ...previous };
-          delete next[item.id];
-          return next;
-        });
-
-        setMessage(`"${item.title}" has already been completed today.`);
+        setMessage("Already completed today!");
         return;
       }
-
-      setPageError(finalMessage);
 
       setCompletionErrors((previous) => ({
         ...previous,
@@ -500,21 +494,6 @@ export default function KidChoresPage() {
     }
   }
 
-  const assignedItems = useMemo(
-    () => choreItems.filter((item) => item.status === "assigned"),
-    [choreItems]
-  );
-
-  const completedItems = useMemo(
-    () => choreItems.filter((item) => item.status === "completed"),
-    [choreItems]
-  );
-
-  const recurringItems = useMemo(
-    () => choreItems.filter((item) => item.status === "recurring"),
-    [choreItems]
-  );
-
   if (loading) {
     return (
       <>
@@ -523,9 +502,7 @@ export default function KidChoresPage() {
         <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
           <div className="mx-auto max-w-5xl">
             <section className="rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
-              <p className="text-sm text-[var(--muted)]">
-                Loading chores…
-              </p>
+              <p className="text-sm text-[var(--muted)]">Loading chores…</p>
             </section>
           </div>
         </main>
@@ -533,339 +510,232 @@ export default function KidChoresPage() {
     );
   }
 
+  if (pageError || !kid) {
+    return (
+      <>
+        <AppNav />
+
+        <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
+          <div className="mx-auto max-w-5xl">
+            <section className="rounded-[2rem] border border-[var(--danger-border)] bg-white p-8 shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
+              <p className="text-sm text-[var(--danger-text)]">
+                {pageError || "Helper not found."}
+              </p>
+
+              <Link
+                href="/kids"
+                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-[var(--panel-soft)]"
+              >
+                Back to helpers
+              </Link>
+            </section>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  const heroStyle = getHeroStyle(kid);
+
   return (
     <>
       <AppNav />
 
       <main className="min-h-screen bg-[var(--background)] px-4 py-5 text-[var(--foreground)] sm:px-6 sm:py-8">
         <div className="mx-auto max-w-5xl">
-          <section className="relative overflow-hidden rounded-[2rem] border border-[var(--border-soft)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(33,53,85,0.12)]">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(255,255,255,0.55)_35%,_transparent_72%)]" />
-            <div className="pointer-events-none absolute -left-10 top-10 h-32 w-32 rounded-full bg-[var(--blob-blue)] blur-3xl opacity-60" />
-            <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-[var(--blob-yellow)] blur-3xl opacity-60" />
+          <section
+            className={`relative overflow-hidden rounded-[2rem] p-6 shadow-[0_20px_60px_rgba(33,53,85,0.14)] sm:p-8 md:p-10 ${heroStyle.background} ${heroStyle.text}`}
+          >
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-4 -top-7 select-none text-8xl opacity-25 sm:text-9xl"
+            >
+              ✨
+            </span>
 
-            <div className="relative p-5 sm:p-8 md:p-10">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                    Today’s chores
-                  </p>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute right-20 top-10 select-none text-3xl opacity-45"
+            >
+              ★
+            </span>
 
-                  <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                    {kid?.name}&rsquo;s chores
-                  </h1>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-4 right-8 select-none text-5xl opacity-30"
+            >
+              ✦
+            </span>
 
-                  <p className="mt-3 text-sm leading-6 text-[var(--muted)] sm:text-base">
-                    Finish a chore, confirm it, and earn stars right away.
-                  </p>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-8 right-32 select-none text-3xl opacity-30"
+            >
+              ☁︎
+            </span>
 
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <Link
-                      href={`/kids/${kidId}`}
-                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-                    >
-                      Back to profile
-                    </Link>
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${heroStyle.softText}`}>
+                  Today’s chores
+                </p>
 
-                    <Link
-                      href="/kids"
-                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--border-strong)] bg-white/85 px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-sm backdrop-blur transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
-                    >
-                      Back to helpers
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="min-w-[230px] rounded-[1.75rem] border border-[var(--star-border)] bg-[linear-gradient(135deg,_#fff7d6_0%,_#ffe7b8_100%)] p-5 shadow-[0_14px_30px_rgba(138,90,0,0.12)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--star-text)]">
-                    Progress
-                  </p>
-
-                  <div className="mt-3 flex items-end gap-2">
-                    <span className="text-4xl font-semibold tracking-tight text-[var(--foreground)]">
-                      {kid?.stars ?? 0}
-                    </span>
-
-                    <span className="pb-1 text-sm font-medium text-[var(--star-text)]">
-                      stars
-                    </span>
-                  </div>
-
-                  <p className="mt-2 text-sm text-[var(--foreground-soft)]">
-                    Level {kid?.level ?? 1} helper
-                  </p>
-                </div>
+                <h1 className="mt-3 font-[family:var(--font-display)] text-5xl leading-none tracking-[-0.045em] sm:text-6xl">
+                  {kid.name}
+                </h1>
               </div>
 
-              {(message || pageError) && (
-                <div className="mt-6 space-y-3">
-                  {message && (
-                    <div
-                      className="rounded-2xl border border-[var(--success-border)] bg-[var(--success-soft)] px-4 py-3 text-sm text-[var(--success-text)]"
-                      role="status"
-                    >
-                      {message}
-                    </div>
-                  )}
-
-                  {pageError && (
-                    <div
-                      className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger-text)]"
-                      role="alert"
-                    >
-                      {pageError}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div
+                className={`inline-flex w-fit items-center gap-2 rounded-full px-5 py-3 text-lg font-bold shadow-sm ${heroStyle.chip}`}
+              >
+                <StarIcon className="h-5 w-5" />
+                {kid.stars ?? 0}
+              </div>
             </div>
           </section>
 
-          <section className="mt-8 grid gap-4 md:grid-cols-3">
-            <div className="rounded-[1.5rem] border border-[var(--border-soft)] bg-white/80 p-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
-                Assigned now
-              </p>
-
-              <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-                {assignedItems.length}
-              </p>
-
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                Chores ready to complete.
-              </p>
+          {message && (
+            <div
+              className="mt-5 rounded-[1.5rem] border border-[var(--success-border)] bg-[var(--success-soft)] px-5 py-4 text-center text-base font-semibold text-[var(--success-text)] shadow-sm"
+              role="status"
+            >
+              ✨ {message}
             </div>
+          )}
 
-            <div className="rounded-[1.5rem] border border-[var(--success-border)] bg-[var(--success-soft)] p-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--success-text)]">
-                Completed today
-              </p>
-
-              <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--success-text)]">
-                {completedItems.length}
-              </p>
-
-              <p className="mt-2 text-sm text-[var(--success-text)]">
-                Chores finished and stars earned.
-              </p>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-[var(--border-soft)] bg-white/80 p-5 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-strong)]">
-                Recurring
-              </p>
-
-              <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-                {recurringItems.length}
-              </p>
-
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                Active chores that come back on a schedule.
-              </p>
-            </div>
-          </section>
-
-          <section className="mt-10">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                Current chores
-              </h2>
-
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Do the chore, confirm it, and collect your stars.
-              </p>
-            </div>
-
+          <section className="mt-8">
             {choreItems.length === 0 ? (
-              <div className="mt-4 rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--panel-soft)] p-8">
-                <p className="text-sm text-[var(--muted)]">
-                  No chores assigned right now.
+              <div className="rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-white/75 p-10 text-center shadow-sm">
+                <div className="text-5xl">🎉</div>
+
+                <p className="mt-4 text-xl font-semibold text-[var(--foreground)]">
+                  All done for now!
                 </p>
               </div>
             ) : (
-              <div className="mt-5 space-y-4">
+              <div className="space-y-4">
                 {choreItems.map((item) => {
-                  const isAssigned = item.status === "assigned";
                   const isCompleted = item.status === "completed";
-                  const isRecurringOnly = item.source === "recurring";
                   const isUpdating = updatingId === item.id;
-                  const isConfirming = confirmingItemId === item.id;
-                  const isDaily = item.recurrence_type === "daily";
                   const inlineError = completionErrors[item.id];
+                  const category = getChoreIcon(item.category);
 
                   return (
                     <article
                       key={item.id}
-                      className={`rounded-[1.75rem] border p-5 shadow-sm transition-all duration-200 ${
+                      className={`rounded-[1.75rem] border p-4 shadow-sm transition-all duration-200 sm:p-5 ${
                         isCompleted
                           ? "border-[var(--border-soft)] bg-[#f1f3f5] opacity-75"
-                          : isRecurringOnly
-                            ? "border-[var(--border-soft)] bg-white/78"
-                            : "border-[var(--star-border)] bg-[linear-gradient(180deg,_#fffdfa_0%,_#fff7ea_100%)]"
+                          : "border-[var(--border-soft)] bg-white/88 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(33,53,85,0.10)]"
                       }`}
                     >
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div className="max-w-2xl">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3
-                              className={`text-lg font-semibold ${
-                                isCompleted
-                                  ? "text-[var(--muted)] line-through"
-                                  : "text-[var(--foreground)]"
-                              }`}
-                            >
-                              {item.title}
-                            </h3>
-
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusStyles(
-                                item.status
-                              )}`}
-                            >
-                              {isCompleted ? "✓ " : ""}
-                              {getStatusLabel(item)}
+                      <div className="grid gap-4 sm:grid-cols-[76px_minmax(0,1fr)_minmax(180px,240px)] sm:items-center">
+                        <div
+                          className={`flex h-[76px] w-[76px] items-center justify-center rounded-[1.4rem] border ${
+                            isCompleted
+                              ? "border-[var(--border-soft)] bg-white/60 grayscale"
+                              : "border-[var(--star-border)] bg-[var(--star-soft)]"
+                          }`}
+                        >
+                          {category ? (
+                            <Image
+                              src={category.icon}
+                              alt=""
+                              width={52}
+                              height={52}
+                              className="h-12 w-12 object-contain"
+                            />
+                          ) : (
+                            <span className="text-4xl" aria-hidden="true">
+                              ✓
                             </span>
+                          )}
+                        </div>
 
-                            <span className="inline-flex rounded-full border border-[var(--star-border)] bg-[var(--star-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--star-text)]">
-                              {item.star_value}{" "}
-                              {item.star_value === 1 ? "star" : "stars"}
-                            </span>
-
-                            <span className="inline-flex rounded-full border border-[var(--border-soft)] bg-white/90 px-2.5 py-1 text-xs font-semibold text-[var(--foreground-soft)]">
-                              {getRecurrenceLabel(item.recurrence_type)}
-                            </span>
-                          </div>
-
-                          <p
-                            className={`mt-3 text-sm ${
+                        <div className="min-w-0">
+                          <h2
+                            className={`text-2xl font-semibold tracking-tight sm:text-3xl ${
                               isCompleted
-                                ? "text-[var(--muted)]"
-                                : "text-[var(--muted)]"
+                                ? "text-[var(--muted)] line-through"
+                                : "text-[var(--foreground)]"
                             }`}
                           >
-                            {isCompleted
-                              ? item.recurrence_type === "one_off"
-                                ? "This one-off chore is complete."
-                                : "Nice work! This chore is complete for today."
-                              : item.assigned_for_date
-                                ? `Assigned for ${item.assigned_for_date}`
-                                : isRecurringOnly
-                                  ? "Available as an active recurring chore."
-                                  : "No date assigned."}
-                          </p>
+                            {item.title}
+                          </h2>
 
-                          {item.notes && (
-                            <p
-                              className={`mt-3 text-sm leading-6 ${
-                                isCompleted
-                                  ? "text-[var(--muted)]"
-                                  : "text-[var(--foreground-soft)]"
-                              }`}
-                            >
-                              {item.notes}
-                            </p>
-                          )}
+                          <div className="mt-3 flex flex-wrap items-center gap-1">
+                            {Array.from({
+                              length: Math.min(Math.max(item.star_value, 1), 8),
+                            }).map((_, index) => (
+                              <StarIcon
+                                key={`${item.id}-star-${index}`}
+                                className={`h-5 w-5 ${
+                                  isCompleted
+                                    ? "text-[var(--muted)]"
+                                    : "text-[var(--star-text)]"
+                                }`}
+                              />
+                            ))}
 
-                          {item.description && (
-                            <p
-                              className={`mt-3 text-sm leading-6 ${
-                                isCompleted
-                                  ? "text-[var(--muted)]"
-                                  : "text-[var(--foreground-soft)]"
-                              }`}
-                            >
-                              {item.description}
-                            </p>
-                          )}
-
-                          {isDaily && !isCompleted && (
-                            <p className="mt-3 text-xs font-medium text-[var(--muted-strong)]">
-                              Daily chores can be completed again tomorrow.
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="md:min-w-[230px]">
-                          {(isAssigned || isRecurringOnly) && !isConfirming && (
-                            <button
-                              type="button"
-                              onClick={() => startChoreConfirmation(item)}
-                              disabled={updatingId !== null}
-                              className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(15,118,110,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              I did it!
-                            </button>
-                          )}
-
-                          {isConfirming && (
-                            <div className="rounded-2xl border border-[var(--star-border)] bg-[var(--star-soft)] p-4">
-                              <p className="text-sm font-semibold text-[var(--foreground)]">
-                                Are you sure?
-                              </p>
-
-                              <p className="mt-1 text-sm leading-6 text-[var(--foreground-soft)]">
-                                You will earn {item.star_value}{" "}
-                                {item.star_value === 1 ? "star" : "stars"} right
-                                away.
-                              </p>
-
-                              <div className="mt-4 flex flex-col gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => void completeChore(item)}
-                                  disabled={isUpdating}
-                                  className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,118,110,0.20)] transition-all hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {isUpdating
-                                    ? "Saving…"
-                                    : `Yes, earn ${item.star_value} ${
-                                        item.star_value === 1
-                                          ? "star"
-                                          : "stars"
-                                      }`}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={cancelChoreConfirmation}
-                                  disabled={isUpdating}
-                                  className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-strong)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  Not yet
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {isCompleted && (
-                            <button
-                              type="button"
-                              disabled
-                              className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--panel-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--muted)] opacity-90"
+                            {item.star_value > 8 && (
+                              <span
+                                className={`ml-1 text-sm font-bold ${
+                                  isCompleted
+                                    ? "text-[var(--muted)]"
+                                    : "text-[var(--star-text)]"
+                                }`}
                               >
-                            ✓ Completed today
-                           </button>
-                          )}
-
-                          {inlineError && (
-                            <div
-                              role="alert"
-                              className="mt-3 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm leading-6 text-[var(--danger-text)]"
-                            >
-                              <span className="font-semibold">
-                                Couldn’t complete this chore.
-                              </span>{" "}
-                              {inlineError}
-                            </div>
-                          )}
+                                +{item.star_value - 8}
+                              </span>
+                            )}
+                          </div>
                         </div>
+
+                        {isCompleted ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="inline-flex min-h-[76px] w-full cursor-not-allowed items-center justify-center gap-3 rounded-[1.35rem] border border-[var(--border-soft)] bg-[var(--panel-soft)] px-5 py-4 text-lg font-bold text-[var(--muted)]"
+                          >
+                            <span className="text-3xl">✓</span>
+                            Done!
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void completeChore(item)}
+                            disabled={updatingId !== null}
+                            className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-[var(--accent)] px-5 py-4 text-lg font-bold text-white shadow-[0_12px_28px_rgba(15,118,110,0.24)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <span className="text-3xl">✓</span>
+                            {isUpdating ? "Saving…" : "I did it!"}
+                          </button>
+                        )}
                       </div>
+
+                      {inlineError && (
+                        <div
+                          role="alert"
+                          className="mt-4 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-center text-sm font-medium text-[var(--danger-text)]"
+                        >
+                          {inlineError}
+                        </div>
+                      )}
                     </article>
                   );
                 })}
               </div>
             )}
           </section>
+
+          <div className="mt-8 text-center">
+            <Link
+              href="/kids"
+              className="inline-flex min-h-10 items-center justify-center rounded-full px-4 py-2 text-sm font-medium text-[var(--muted)] underline underline-offset-4 transition-colors hover:text-[var(--foreground)]"
+            >
+              Choose a different helper
+            </Link>
+          </div>
         </div>
       </main>
     </>
