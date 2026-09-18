@@ -209,18 +209,10 @@ export default function KidsPage() {
               </div>
 
               <div className="pt-8 sm:pt-10">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                  Ready to help?
-                </p>
-
                 <h1 className="mt-3 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-6xl">
                   Who is ready to help?
                 </h1>
 
-                <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                  Pick your helper card to see today’s chores and start earning
-                  stars.
-                </p>
               </div>
 
               {pageError && (
