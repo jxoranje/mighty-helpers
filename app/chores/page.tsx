@@ -878,8 +878,8 @@ export default function ChoresPage() {
                   </h1>
 
                   <p className="mt-4 max-w-xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                    Create clear tasks, assign them to helpers, and set the
-                    stars each chore earns.
+                    Create clear and exciting tasks, assign them to your helpers, and set the
+                    stars each chore earns. You create a chore for each kid, as a chore can be different from helper to helper: daily, or not, or more stars. 
                   </p>
                 </div>
 
@@ -888,7 +888,7 @@ export default function ChoresPage() {
                   onClick={focusChoreForm}
                   className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,118,110,0.25)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--accent-hover)]"
                 >
-                  + Add chore
+                  + Add a chore
                 </button>
               </div>
 
@@ -930,8 +930,8 @@ export default function ChoresPage() {
                       </h2>
 
                       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                        Create, edit, assign, and organize the tasks your
-                        household uses.
+                        Create, edit, assign, and organize the chores and tasks that are important for you and your
+                        household. 
                       </p>
                     </div>
 

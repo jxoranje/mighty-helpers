@@ -594,7 +594,7 @@ export default function DashboardPage() {
     </h1>
 
     <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
-      Add helpers, create chores and rewards, and keep your household routine
+      Here is where you add or change helpers, create chores and rewards, and keep your household routine
       running smoothly.
     </p>
   </div>
@@ -639,7 +639,7 @@ export default function DashboardPage() {
                         </p>
 
                         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                          Set up your household
+                          Update your household
                         </h2>
                       </div>
 

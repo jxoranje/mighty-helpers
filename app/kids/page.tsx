@@ -213,12 +213,11 @@ if (loading) {
 
             <div className="pt-8 sm:pt-10">
               <h1 className="mt-5 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-6xl">
-                Whose Turn Is It to Help? 
+                Who is Ready to Help? 
               </h1>
 
               <p className="mt-4 max-w-2xl text-base leading-8 text-[var(--muted)] sm:text-lg">
-                Ready to help? Click on your name below, then head to your chores to
-                start earning stars, or see your profile and how you're doing.
+                Are you ready to go? Click on your name below to find your next chores, rewards and your profile, to see how you're doing!  
               </p>
             </div>
 
