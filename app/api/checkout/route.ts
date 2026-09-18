@@ -53,7 +53,7 @@ export async function POST() {
       mode: "subscription",
       customer_email: user.email,
       client_reference_id: user.id,
-      line_items: [
+            line_items: [
         {
           price: process.env.STRIPE_PRICE_ID!,
           quantity: 1,
@@ -70,6 +70,7 @@ export async function POST() {
             },
           },
       payment_method_collection: "always",
+      allow_promotion_codes: true,
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?checkout=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/onboarding?step=finish`,
       metadata: {
