@@ -586,10 +586,6 @@ export default function DashboardPage() {
                     Parent Dashboard
                   </p>
 
-                  <h1 className="mt-3 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
-                    Your household
-                  </h1>
-
                   <p className="mt-3 text-sm text-[var(--muted)]">
                     {kids.length} {kids.length === 1 ? "helper" : "helpers"}
                   </p>
@@ -1155,7 +1151,7 @@ export default function DashboardPage() {
             </div>
           </section>
         </div>
+    }
       </main>
     </>
   );
-}
