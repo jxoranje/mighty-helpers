@@ -582,9 +582,10 @@ export default function DashboardPage() {
             <div className="relative p-5 sm:p-8 md:p-10">
               <div className="flex items-start justify-between gap-5">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                    Parent Dashboard
-                  </p>
+
+                  <h1 className="mt-3 font-[family:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] text-[var(--foreground)] sm:text-5xl">
+                    Update your household
+                  </h1>
 
                   <p className="mt-3 text-sm text-[var(--muted)]">
                     {kids.length} {kids.length === 1 ? "helper" : "helpers"}
@@ -1151,7 +1152,7 @@ export default function DashboardPage() {
             </div>
           </section>
         </div>
-    }
       </main>
     </>
   );
+}
