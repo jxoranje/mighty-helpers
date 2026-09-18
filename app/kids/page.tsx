@@ -201,9 +201,9 @@ export default function KidsPage() {
                 <Image
                   src={logo}
                   alt="Mighty Helpers"
-                  width={100}
-                  height={100}
-                  className="h-10 w-10 rounded-2xl object-cover shadow-sm sm:h-12 sm:w-12"
+                  width={160}
+                  height={160}
+                  className="h-20 w-20 rounded-[1.75rem] object-cover shadow-[0_12px_30px_rgba(33,53,85,0.16)] sm:h-28 sm:w-28"
                   priority
                 />
               </div>
